@@ -1,0 +1,164 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+    
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+    
+    function incoming() {
+      return request.resource.data;
+    }
+    
+    function existing() {
+      return resource.data;
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // RBAC: Check if the current user is an admin
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        request.auth.token.email == 'chatshero8@gmail.com'
+      );
+    }
+
+    // --- Validation Blueprints ---
+
+    function isValidUser(data) {
+      let requiredFields = ['uid', 'name', 'email', 'avatar', 'role', 'isAdmin', 'createdAt'];
+      let allAllowedFields = ['uid', 'name', 'email', 'avatar', 'role', 'isAdmin', 'createdAt', 'internshipEndDate', 'department', 'target', 'targets', 'todos', 'calendarEvents', 'activityLogs', 'automationGoal'];
+      return data.keys().hasAll(requiredFields)
+        && data.keys().size() <= allAllowedFields.size()
+        && data.uid == request.auth.uid
+        && data.email == request.auth.token.email
+        && data.name is string && data.name.size() <= 100
+        && data.avatar is string && data.avatar.size() <= 2000
+        && data.role in ['admin', 'Senior IT', 'Junior IT', 'Intern IT', 'Intern Graphic', 'Private', 'pending']
+        && data.isAdmin is bool
+        && (data.isAdmin == false || isAdmin())
+        && (data.createdAt == request.time || data.createdAt == existing().createdAt);
+    }
+
+    function isValidAgent(data) {
+      let requiredFields = ['name', 'role', 'department', 'avatar', 'ownerId', 'createdAt'];
+      let allAllowedFields = ['id', 'name', 'role', 'department', 'avatar', 'ownerId', 'createdAt', 'description', 'owner', 'tokensConsumed', 'powerLevel', 'popularity', 'visibility', 'externalLink', 'imageUrl', 'allowedRoles', 'allowedEmails', 'isDeleted', 'deletedAt'];
+      return data.keys().hasAll(requiredFields)
+        && data.keys().size() <= allAllowedFields.size()
+        && data.name is string && data.name.size() <= 100
+        && data.role is string && data.role.size() <= 100
+        && data.department is string && data.department.size() <= 100
+        && data.avatar is string && data.avatar.size() <= 2000
+        && data.ownerId == request.auth.uid
+        && (data.createdAt == request.time || data.createdAt == existing().createdAt);
+    }
+
+    function isValidWidget(data) {
+      let requiredFields = ['title', 'department', 'type', 'ownerId', 'createdAt'];
+      return data.keys().hasAll(requiredFields)
+        && data.title is string && data.title.size() <= 100
+        && data.department is string && data.department.size() <= 100
+        && data.type in ['metric', 'chart_line', 'chart_bar']
+        && data.ownerId == request.auth.uid
+        && (data.createdAt == request.time || data.createdAt == existing().createdAt);
+    }
+
+    function isValidGlobalEvent(data) {
+      let requiredFields = ['type', 'userId', 'userName', 'message', 'createdAt'];
+      return data.keys().hasAll(requiredFields)
+        && data.type in ['agent_created', 'target_hit', 'announcement', 'sales_closed', 'it_project_live']
+        && data.userId == request.auth.uid
+        && data.userName is string && data.userName.size() <= 100
+        && data.message is string && data.message.size() <= 1000
+        && data.createdAt == request.time;
+    }
+
+    function isValidTemplate(data) {
+      let requiredFields = ['title', 'department', 'type', 'ownerId', 'createdAt'];
+      return data.keys().hasAll(requiredFields)
+        && data.title is string && data.title.size() <= 100
+        && data.department is string && data.department.size() <= 100
+        && data.type is string && data.type.size() <= 100
+        && data.ownerId == request.auth.uid
+        && (data.createdAt == request.time || data.createdAt == existing().createdAt);
+    }
+
+    // --- Collections ---
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isEmailVerified() && isValidUser(incoming()) && isValidId(userId);
+      allow update: if isEmailVerified() && isValidId(userId) && (
+        isAdmin() || (
+          isOwner(userId) && 
+          incoming().diff(existing()).affectedKeys().hasOnly(['name', 'avatar', 'todos', 'targets', 'calendarEvents', 'activityLogs', 'automationGoal', 'department', 'target', 'internshipEndDate']) &&
+          isValidUser(incoming())
+        )
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /admins/{adminId} {
+      allow read: if isSignedIn();
+      allow write: if false; 
+    }
+
+    match /agents/{agentId} {
+      allow read: if isSignedIn() && (
+        !existing().keys().contains('visibility') || 
+        existing().visibility == 'public' || 
+        existing().ownerId == request.auth.uid || 
+        isAdmin() ||
+        (existing().keys().contains('allowedRoles') && existing().allowedRoles.size() > 0 && request.auth.token.role in existing().allowedRoles) ||
+        (existing().keys().contains('allowedEmails') && existing().allowedEmails.size() > 0 && request.auth.token.email in existing().allowedEmails)
+      );
+      allow create: if isEmailVerified() && isValidAgent(incoming()) && isValidId(agentId);
+      allow update: if isEmailVerified() && isValidId(agentId) && (
+        isAdmin() || (
+          isOwner(existing().ownerId) &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['name', 'description', 'tokensConsumed', 'powerLevel', 'popularity', 'imageUrl', 'visibility', 'externalLink', 'isDeleted', 'deletedAt', 'owner']) &&
+          isValidAgent(incoming())
+        )
+      );
+      allow delete: if isEmailVerified() && isValidId(agentId) && (isAdmin() || isOwner(existing().ownerId));
+    }
+
+    match /widgets/{widgetId} {
+      allow read: if isSignedIn();
+      allow create: if isAdmin() && isValidWidget(incoming()) && isValidId(widgetId);
+      allow update: if isAdmin() && isValidWidget(incoming()) && isValidId(widgetId);
+      allow delete: if isAdmin() && isValidId(widgetId);
+    }
+
+    match /global_events/{eventId} {
+      allow read: if isSignedIn();
+      allow create: if isEmailVerified() && isValidGlobalEvent(incoming()) && isValidId(eventId);
+      allow update, delete: if false;
+    }
+
+    match /templates/{templateId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() && isValidTemplate(incoming()) && isValidId(templateId);
+    }
+  }
+}

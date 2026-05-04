@@ -1,0 +1,105 @@
+{
+  "entities": {
+    "GlobalEvent": {
+      "title": "Global Event",
+      "description": "Global events like agent creation or sales targets hit",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["agent_created", "target_hit", "announcement"] },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "message": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["type", "userId", "userName", "message", "createdAt"]
+    },
+    "Widget": {
+      "title": "Widget",
+      "description": "A KPI widget created by admin",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "department": { "type": "string" },
+        "type": { "type": "string", "enum": ["metric", "chart_line", "chart_bar"] },
+        "dataSourceUrl": { "type": "string" },
+        "mockDataJson": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "department", "type", "ownerId", "createdAt"]
+    },
+    "User": {
+      "title": "User Profile",
+      "description": "User account information and role",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "avatar": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "Senior IT", "Junior IT", "Intern IT", "Intern Graphic", "Private", "pending"] },
+        "internshipEndDate": { "type": "string" },
+        "isAdmin": { "type": "boolean" },
+        "department": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "name", "email", "role", "isAdmin", "createdAt"]
+    },
+    "Agent": {
+      "title": "Agent",
+      "description": "An AI professional available for deployment",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "role": { "type": "string" },
+        "department": { "type": "string" },
+        "avatar": { "type": "string" },
+        "description": { "type": "string" },
+        "owner": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "tokensConsumed": { "type": "number" },
+        "powerLevel": { "type": "number" },
+        "popularity": { "type": "number" },
+        "visibility": { "type": "string", "enum": ["public", "private"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "externalLink": { "type": "string" },
+        "imageUrl": { "type": "string" }
+      },
+      "required": ["name", "role", "department", "avatar", "ownerId", "createdAt"]
+    },
+    "Template": {
+      "title": "Department Template",
+      "description": "A full-screen dashboard template assigned to a department",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "department": { "type": "string" },
+        "type": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "department", "type", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/global_events/{eventId}": {
+      "schema": "GlobalEvent",
+      "description": "Global events broadcast to all users"
+    },
+    "/widgets/{widgetId}": {
+      "schema": "Widget",
+      "description": "KPI widgets"
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Public and private user profiles"
+    },
+    "/agents/{agentId}": {
+      "schema": "Agent",
+      "description": "A registry of all available AI agents"
+    },
+    "/templates/{templateId}": {
+      "schema": "Template",
+      "description": "Department-specific dashboard templates"
+    }
+  }
+}

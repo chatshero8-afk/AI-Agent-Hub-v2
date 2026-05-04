@@ -1,0 +1,516 @@
+import React, { useState } from 'react';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, LabelList } from 'recharts';
+import { Trophy, Coins, Target, Award, Wallet, Phone, PhoneOff, Users, ArrowUpRight, ArrowDownRight, Activity, Handshake, ChevronRight, ActivitySquare, MonitorPlay, BarChart3, Presentation, Briefcase, Filter } from 'lucide-react';
+
+const COLORS = ['#8b5cf6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#cbd5e1'];
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+const salesData = MONTHS.map((m, i) => ({
+  name: m,
+  sales: [300000, 480000, 430000, 750000, 1286450, 700000, 800000, 850000, 1200000, 1000000, 800000, 950000][i]
+}));
+
+const closingData = MONTHS.map((m, i) => ({
+  name: m,
+  rate: [18.5, 16.2, 14.8, 20.1, 22.7, 15.3, 16.1, 21.4, 18.2, 16.5, 19.3, 22.0][i]
+}));
+
+const industryData = [
+  { name: 'Real Estate', value: 452180, pct: '35.1%' },
+  { name: 'Education', value: 206743, pct: '22.1%' },
+  { name: 'Finance', value: 191540, pct: '14.9%' },
+  { name: 'Retail', value: 142990, pct: '11.1%' },
+  { name: 'Tech', value: 105650, pct: '8.2%' },
+  { name: 'Others', value: 96990, pct: '7.7%' },
+];
+
+const systemActivities = [
+  { time: '09:30', name: 'Alex W.', text: 'Completed client follow-up - Sunshine Properties', tag: 'Follow-up', color: 'text-emerald-500 bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20' },
+  { time: '09:15', name: 'Sarah L.', text: 'Created new sales opportunity - Pioneer Education', tag: 'Opportunity', color: 'text-indigo-500 bg-indigo-50 dark:bg-indigo-500/10 border-indigo-200 dark:border-indigo-500/20' },
+  { time: '09:05', name: 'David C.', text: 'Updated client status - Global Finance Group', tag: 'Follow-up', color: 'text-primary dark:text-purple-400 bg-primary/10 dark:bg-primary/10 border-primary/20 dark:border-primary/20 dark:border-primary/30' },
+  { time: '08:50', name: 'Emma R.', text: 'Updated deal amount - Smart Tech Mfg.', tag: 'Deal', color: 'text-orange-500 bg-orange-50 dark:bg-orange-500/10 border-orange-200 dark:border-orange-500/20' },
+  { time: '08:30', name: 'System', text: 'Generated daily call report - 90%', tag: 'System', color: 'text-primary dark:text-purple-400 bg-primary/10 dark:bg-primary/10 border-primary/20 dark:border-primary/20 dark:border-primary/30' },
+];
+
+export default function SalesDashboardTemplate() {
+  const [startDate, setStartDate] = useState('2025-05-01');
+  const [endDate, setEndDate] = useState('2025-05-31');
+
+  const KpiCard = ({ icon: Icon, titleEn, titleCn, value, trend, trendDir, unit = '' }) => (
+    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 rounded-2xl p-5 flex flex-col justify-between hover:shadow-lg transition-shadow">
+      <div className="flex justify-between items-center mb-3">
+        <div className="w-10 h-10 rounded-full bg-primary/10 dark:bg-primary/10 flex items-center justify-center text-primary dark:text-purple-400">
+          <Icon size={20} />
+        </div>
+        <div className="text-right">
+          <p className="text-xs font-bold text-slate-900 dark:text-white">{titleEn}</p>
+          <p className="text-[10px] text-slate-500 dark:text-slate-400 dark:text-slate-300">{titleCn}</p>
+        </div>
+      </div>
+      <div className="flex items-end justify-between mt-2">
+        <div>
+           <span className="text-xs text-slate-400 mr-1">{unit}</span>
+           <span className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{value}</span>
+        </div>
+        <div className="text-right">
+          <p className="text-[10px] text-slate-500 dark:text-slate-400 dark:text-slate-300 mb-0.5 whitespace-nowrap">vs Last Month</p>
+          <span className={`text-xs font-bold flex items-center justify-end gap-0.5 ${trendDir === 'up' ? 'text-emerald-500' : 'text-red-500'}`}>
+            {trendDir === 'up' ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+            {trend}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="w-full font-sans px-2 sm:px-4 md:px-6 pb-8">
+      
+      {/* Top Header Filter Row */}
+      <div className="flex justify-end items-center mb-8 gap-3 flex-wrap">
+        <label className="text-sm font-bold text-slate-500 uppercase tracking-widest text-[10px]">Date Range:</label>
+        <div className="flex items-center gap-2">
+          <input 
+            type="date"
+            value={startDate}
+            onChange={e => setStartDate(e.target.value)}
+            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-slate-700 dark:text-slate-300 shadow-sm"
+          />
+          <span className="text-slate-400 font-bold text-xs">TO</span>
+          <input 
+            type="date"
+            value={endDate}
+            onChange={e => setEndDate(e.target.value)}
+            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-slate-700 dark:text-slate-300 shadow-sm"
+          />
+        </div>
+        <button className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 p-2 rounded-lg text-slate-600 dark:text-slate-300 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800 ml-1">
+           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+        </button>
+        <button className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 px-4 py-2 rounded-lg flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800 font-bold">
+           <Filter size={16} /> Filter Applied
+        </button>
+      </div>
+
+      <div className="space-y-8">
+        {/* Top Row: Ranks, Targets, Score */}
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+            {/* Top Sales Rank */}
+            <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-200 dark:border-white/5 shadow-sm">
+              <h3 className="text-lg font-black tracking-normal flex items-center gap-2 mb-8 text-slate-900 dark:text-white">
+                <Trophy className="text-primary dark:text-purple-400" size={20} /> Top Sales Leaderboard
+              </h3>
+              <div className="space-y-8">
+                {[ 
+                  { rank: 1, name: 'Alex W.', dept: 'Sales Dept (East)', rev: '442,590', deals: 128, trend: '21.5%', img: 'https://api.dicebear.com/7.x/notionists/svg?seed=wang' },
+                  { rank: 2, name: 'Sarah L.', dept: 'Sales Dept (South)', rev: '428,760', deals: 92, trend: '16.3%', img: 'https://api.dicebear.com/7.x/notionists/svg?seed=li' }
+                ].map((rep, i) => (
+                  <div key={i} className="flex items-center gap-5">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black ${i === 0 ? 'bg-amber-100 text-amber-500' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 dark:text-slate-300'}`}>
+                      {rep.rank}
+                    </div>
+                    <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden shrink-0 border-2 border-white dark:border-slate-800 shadow-sm">
+                      <img src={rep.img} alt={rep.name} className="w-full h-full object-cover" />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-bold text-base text-slate-900 dark:text-white tracking-normal">{rep.name}</h4>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 dark:text-slate-300">{rep.dept}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] text-slate-400 mb-0.5">Sales (RM)</p>
+                      <p className="font-black text-slate-900 dark:text-white text-sm">RM {rep.rev} <span className="text-emerald-500 text-[10px] ml-1 font-bold">▲ {rep.trend}</span></p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-300 mt-1">Deals Closed <span className="text-slate-900 dark:text-white font-bold ml-2">{rep.deals}</span></p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button className="flex items-center justify-center gap-1 w-full mt-8 text-sm font-bold text-primary dark:text-purple-400 hover:text-primary dark:text-purple-300 transition-colors">
+                View Full Leaderboard <ChevronRight size={16} />
+              </button>
+            </div>
+
+            {/* Bonus Tier */}
+            <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-200 dark:border-white/5 shadow-sm overflow-hidden relative">
+               <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-[30px] -mr-16 -mt-16" />
+               <h3 className="text-lg font-black tracking-normal flex items-center gap-2 mb-6 text-slate-900 dark:text-white">
+                 <Coins className="text-amber-500" size={20} /> Bonus Tier Rewards
+               </h3>
+               <div className="space-y-4 relative z-10">
+                 <div className="mb-6">
+                    <div className="flex justify-between items-end mb-2">
+                      <div>
+                        <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">Current Sales</p>
+                        <p className="font-black text-xl text-slate-900 dark:text-white mt-1">RM 45,210</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] uppercase font-bold text-amber-500 tracking-widest bg-amber-500/10 px-2 py-0.5 rounded-md inline-block border border-amber-500/20">Unlocked: RM 1,000</p>
+                      </div>
+                    </div>
+                    {/* Progress bar up to 80k */}
+                    <div className="h-3 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden relative border border-slate-200 dark:border-slate-700">
+                       <div className="h-full bg-gradient-to-r from-amber-400 to-amber-500 w-[56%] rounded-full relative" />
+                       <div className="absolute top-0 bottom-0 left-[50%] w-0.5 bg-white/50 dark:bg-slate-900/50" />
+                       <div className="absolute top-0 bottom-0 left-[75%] w-0.5 bg-white/50 dark:bg-slate-900/50" />
+                    </div>
+                    <div className="flex justify-between items-center mt-2 px-1 text-[10px] font-bold text-slate-400">
+                      <span>0</span>
+                      <span>RM 40k</span>
+                      <span>RM 60k</span>
+                      <span>RM 80k+</span>
+                    </div>
+                 </div>
+
+                 {[
+                   { target: '40', amount: '1,000', unlock: true },
+                   { target: '60', amount: '1,500', unlock: false },
+                   { target: '80', amount: '2,300', unlock: false },
+                 ].map((tier, i) => (
+                   <div key={i} className={`flex items-center justify-between p-4 rounded-3xl border transition-all ${tier.unlock ? 'bg-amber-500/5 border-amber-500/20 shadow-sm' : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-white/5'}`}>
+                      <div className="flex items-center gap-4">
+                         <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${tier.unlock ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20' : 'bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500'}`}>
+                           {tier.unlock ? <Award size={20} /> : <Target size={20} />}
+                         </div>
+                         <div>
+                            <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-0.5">Target Hit</p>
+                            <p className={`font-black text-sm ${tier.unlock ? 'text-slate-900 dark:text-white' : 'text-slate-400'}`}>RM {tier.target}k</p>
+                         </div>
+                      </div>
+                      <div className="text-right">
+                         <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400 mb-0.5">Bonus</p>
+                         <p className={`font-black text-lg ${tier.unlock ? 'text-amber-500' : 'text-slate-400'}`}>RM {tier.amount}</p>
+                      </div>
+                   </div>
+                 ))}
+               </div>
+            </div>
+          
+          {/* Monthly Targets */}
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-200 dark:border-white/5 shadow-sm">
+            <h3 className="text-lg font-black tracking-normal flex items-center gap-2 mb-8 text-slate-900 dark:text-white">
+               <Target className="text-primary dark:text-purple-400" size={20} /> Monthly Targets
+            </h3>
+            <div className="space-y-6">
+              {[ 
+                { label: 'Sales Goal', icon: Wallet, current: '1,286,450', max: '1,500,000', pct: 85.8 },
+                { label: 'Calls Goal', icon: Phone, current: '1,200', max: '1,500', pct: 80.0 },
+                { label: 'Appointments Goal', icon: Briefcase, current: '325', max: '500', pct: 65.0 },
+                { label: 'Follow-up Goal', icon: Presentation, current: '165', max: '250', pct: 66.0 },
+                { label: 'Closing Goal', icon: ActivitySquare, current: '356', max: '500', pct: 71.2 },
+              ].map((t, i) => (
+                <div key={i}>
+                  <div className="flex justify-between items-center text-xs font-bold mb-2">
+                    <span className="text-slate-700 dark:text-slate-200 flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-primary/10 dark:bg-primary/10 flex items-center justify-center text-primary dark:text-purple-400"><t.icon size={12} /></div>
+                      {t.label}
+                    </span>
+                    <span className="text-slate-600 dark:text-slate-300"><span className="text-slate-400 font-normal">%</span> {t.current} <span className="text-slate-400 mx-1 font-normal">/</span> {t.max} <span className="text-slate-900 dark:text-white ml-4 w-10 inline-block text-right">{t.pct}%</span></span>
+                  </div>
+                  <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
+                    <div className="bg-primary h-2 rounded-full" style={{ width: `${t.pct}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button className="flex items-center justify-center gap-1 w-full mt-8 text-sm font-bold text-primary dark:text-purple-400 hover:text-primary dark:text-purple-300 transition-colors">
+              View Target Details <ChevronRight size={16} />
+            </button>
+          </div>
+
+
+        </div>
+
+        {/* KPI Row (6 items) */}
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-6">
+          <KpiCard icon={Award} titleEn="Total Sales" titleCn="(Sales)" value="1,286,450" unit="RM " trend="18.6%" trendDir="up" />
+          <KpiCard icon={ActivitySquare} titleEn="Total Deals" titleCn="(Deals Closed)" value="356" trend="12.4%" trendDir="up" />
+          <KpiCard icon={Target} titleEn="Closing Rate" titleCn="(Conversion Rate)" value="22.7%" trend="1.2pp" trendDir="up" />
+          <KpiCard icon={Phone} titleEn="Calls Connected" titleCn="(Calls Objective)" value="1,200" trend="8.7%" trendDir="up" />
+          <KpiCard icon={PieChart} titleEn="Connection Rate" titleCn="(Call Success %)" value="82.5%" trend="4.7pp" trendDir="up" />
+          <KpiCard icon={PhoneOff} titleEn="Missed Calls" titleCn="(Missed)" value="58" trend="9.3%" trendDir="down" />
+        </div>
+
+        {/* Middle Row Charts */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-200 dark:border-white/5 shadow-sm lg:col-span-3">
+            <h3 className="text-base font-bold mb-8 text-slate-900 dark:text-white">Sales Funnel</h3>
+            <div className="flex flex-col items-center">
+               <div className="w-full max-w-[200px] h-[200px] relative mt-2">
+                  <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full drop-shadow-sm">
+                     <polygon points="0,0 100,0 85,25 15,25" fill="#8b5cf6" />
+                     <polygon points="15,27 85,27 70,52 30,52" fill="#a78bfa" />
+                     <polygon points="30,54 70,54 55,79 45,79" fill="#2dd4bf" />
+                     <polygon points="45,81 55,81 50,100" fill="#34d399" />
+                  </svg>
+                  <div className="absolute top-[8%] left-1/2 -translate-x-1/2 text-xs text-white font-bold tracking-widest text-shadow cursor-default flex flex-col items-center"><span className="border-b border-white/30 pb-1 mb-1">Leads</span><span>1,982</span></div>
+                  <div className="absolute top-[35%] w-[80%] left-1/2 -translate-x-1/2 flex justify-between text-xs text-white font-bold text-shadow cursor-default px-4"><span>Appointment</span><span>642</span><span className="absolute -right-10 text-primary dark:text-purple-400 text-shadow-none top-0">32.4%</span></div>
+                  <div className="absolute top-[61%] w-[60%] left-1/2 -translate-x-1/2 flex justify-between text-xs text-white font-bold text-shadow cursor-default px-2"><span>Attended</span><span>412</span><span className="absolute -right-10 text-primary dark:text-purple-400 text-shadow-none top-0">64.2%</span></div>
+                  <div className="absolute top-[87%] w-[30%] left-1/2 -translate-x-1/2 flex justify-between text-xs text-white font-bold text-shadow cursor-default"><span>Closed</span><span>256</span><span className="absolute -right-12 text-primary dark:text-purple-400 text-shadow-none top-0">62.1%</span></div>
+               </div>
+               
+               <div className="w-full mt-12">
+                 <div className="flex justify-between items-center text-xs font-bold p-4 bg-slate-50 dark:bg-slate-800 rounded-xl">
+                    <span className="text-slate-500 dark:text-slate-400 dark:text-slate-300">Overall Conversion (Leads → Closed)</span>
+                    <span className="text-primary dark:text-purple-400 text-xl">12.9%</span>
+                 </div>
+               </div>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-200 dark:border-white/5 shadow-sm lg:col-span-4 xl:col-span-5">
+            <h3 className="text-base font-bold mb-8 text-slate-900 dark:text-white">Monthly Sales Overview</h3>
+            <div className="h-[250px] w-full mt-4">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={salesData} margin={{ top: 20, right: 0, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.4}/>
+                      <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dy={10} />
+                  <YAxis axisLine={false} tickLine={false} tickFormatter={v => `${v >= 1000000 ? v/1000000 + 'M' : v/1000 + 'k'}`} tick={{ fill: '#64748b', fontSize: 12 }} />
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', backgroundColor: 'var(--tw-colors-white, #fff)' }}
+                    itemStyle={{ color: '#0f172a', fontWeight: 'bold' }}
+                    labelStyle={{ color: '#64748b', fontSize: '12px' }}
+                    formatter={(value) => [`RM ${value.toLocaleString()}`, 'Sales']}
+                  />
+                  <Area type="monotone" dataKey="sales" stroke="#8b5cf6" strokeWidth={3} fill="url(#colorSales)" activeDot={{ r: 6, strokeWidth: 0, fill: '#8b5cf6' }}>
+                    <LabelList 
+                      dataKey="sales" 
+                      position="top" 
+                      offset={10}
+                      fill="#8b5cf6" 
+                      fontSize={10} 
+                      fontWeight="bold"
+                      formatter={(value: number) => value >= 1000000 ? `${(value/1000000).toFixed(1)}M` : value >= 1000 ? `${(value/1000).toFixed(0)}k` : value} 
+                    />
+                  </Area>
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+          
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-200 dark:border-white/5 shadow-sm lg:col-span-5 xl:col-span-4">
+            <h3 className="text-base font-bold mb-8 text-slate-900 dark:text-white">Closing Rates Trend</h3>
+            <div className="h-[250px] w-full mt-4">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={closingData} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dy={10} />
+                  <YAxis axisLine={false} tickLine={false} tickFormatter={v => `${v}%`} tick={{ fill: '#64748b', fontSize: 12 }} domain={[0, 40]} />
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                    labelStyle={{ color: '#64748b', fontSize: '12px' }}
+                  />
+                  <Line type="monotone" dataKey="rate" stroke="#8b5cf6" strokeWidth={3} activeDot={{ r: 6, fill: '#8b5cf6' }} dot={{ r: 4, fill: '#fff', strokeWidth: 2, stroke: '#8b5cf6' }}>
+                    <LabelList
+                      dataKey="rate"
+                      position="top"
+                      offset={12}
+                      fill="#8b5cf6"
+                      fontSize={10}
+                      fontWeight="bold"
+                      formatter={(value: number) => `${value}%`}
+                    />
+                  </Line>
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+
+        {/* Ads Performance & Conversions Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-200 dark:border-white/5 shadow-sm flex items-center justify-between">
+            <div>
+               <h3 className="text-base font-bold text-slate-900 dark:text-white">Ads Performance</h3>
+            </div>
+            <div className="flex gap-10 text-center ml-auto">
+              <div className="flex flex-col items-center">
+                 <div className="w-10 h-10 rounded-full bg-primary/10 dark:bg-primary/10 text-primary dark:text-purple-400 flex items-center justify-center mb-3"><BarChart3 size={18} /></div>
+                 <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase">Total Ads</p>
+                 <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">23</p>
+              </div>
+              <div className="flex flex-col items-center">
+                 <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-500 dark:bg-emerald-500/10 flex items-center justify-center mb-3"><Wallet size={18} /></div>
+                 <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase">Total Spent</p>
+                 <p className="text-2xl font-black text-slate-900 dark:text-white mt-1 text-nowrap">RM 58,420</p>
+              </div>
+              <div className="flex flex-col items-center">
+                 <div className="w-10 h-10 rounded-full bg-indigo-50 text-indigo-500 dark:bg-indigo-500/10 flex items-center justify-center mb-3"><Briefcase size={18} /></div>
+                 <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase">Appointment</p>
+                 <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">325</p>
+              </div>
+              <div className="flex flex-col items-center">
+                 <div className="w-10 h-10 rounded-full bg-primary/10 dark:bg-primary/10 text-primary dark:text-purple-400 flex items-center justify-center mb-3"><Activity size={18} /></div>
+                 <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase">ROAS</p>
+                 <p className="text-2xl font-black text-primary dark:text-purple-400 mt-1">4.38x</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-200 dark:border-white/5 shadow-sm flex items-center justify-between">
+            <div>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">Payment / Conversion</h3>
+            </div>
+            <div className="flex gap-8 text-center ml-auto">
+              <div className="flex flex-col items-center justify-end">
+                 <div className="w-full pb-3 mb-3 border-b border-primary/20 dark:border-primary/30 text-primary dark:text-purple-400 font-bold flex justify-center items-center text-xs"><Wallet size={14} className="mr-2"/> Pending Payments</div>
+                 <p className="text-2xl font-black text-slate-900 dark:text-white flex items-center justify-center gap-1">156<span className="text-sm font-normal">k</span> <span className="text-xs text-emerald-500 font-bold ml-1">▲ 12.3%</span></p>
+              </div>
+              <div className="flex flex-col items-center justify-end">
+                 <div className="w-full pb-3 mb-3 border-b border-indigo-500/20 text-indigo-500 font-bold flex justify-center items-center text-xs"><Briefcase size={14} className="mr-2"/> Pending Deposits</div>
+                 <p className="text-2xl font-black text-slate-900 dark:text-white flex items-center justify-center gap-1">98 <span className="text-xs text-emerald-500 font-bold ml-1">▲ 8.6%</span></p>
+              </div>
+              <div className="flex flex-col items-center justify-end pl-4">
+                 <div className="w-full pb-3 mb-3 text-slate-600 dark:text-slate-300 font-bold text-xs leading-tight"><p>Direct Conversion</p><p className="font-normal text-slate-400 text-[10px]">(Opportunity %)</p></div>
+                 <p className="text-xl font-black text-primary dark:text-purple-400 flex items-center gap-1"><ActivitySquare size={16}/> 15.6% <span className="text-xs text-emerald-500 ml-1">▲ 2.1pp</span></p>
+              </div>
+              <div className="flex flex-col items-center justify-end pl-4">
+                 <div className="w-full pb-3 mb-3 text-slate-600 dark:text-slate-300 font-bold text-xs leading-tight"><p>Deposit</p><p className="font-normal text-slate-400 text-[10px]">Conversion Rate</p></div>
+                 <p className="text-xl font-black text-primary dark:text-purple-400 flex items-center gap-1"><MonitorPlay size={16}/> 9.8% <span className="text-xs text-emerald-500 ml-1">▲ 1.4pp</span></p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Bottom Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-200 dark:border-white/5 shadow-sm lg:col-span-4">
+            <h3 className="text-base font-bold mb-8 text-slate-900 dark:text-white">Industry Distribution</h3>
+            <div className="flex flex-col items-center">
+              <div className="h-[200px] w-full relative">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={industryData} innerRadius={60} outerRadius={80} paddingAngle={0} dataKey="value" stroke="none">
+                      {industryData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                   <p className="text-slate-900 dark:text-white font-black text-base">RM 1,286,450</p>
+                   <p className="text-[10px] text-slate-500 dark:text-slate-400 dark:text-slate-300 font-bold mt-1">Total Sales</p>
+                </div>
+              </div>
+              
+              <div className="w-full space-y-3 mt-6">
+                {industryData.map((d, i) => (
+                  <div key={i} className="flex justify-between items-center text-xs">
+                    <div className="flex items-center gap-3">
+                      <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: COLORS[i] }} />
+                      <span className="text-slate-600 dark:text-slate-300 w-24 truncate">{d.name}</span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                       <div className="w-20 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden shrink-0">
+                          <div className="h-full rounded-full" style={{ backgroundColor: COLORS[i], width: d.pct }} />
+                       </div>
+                       <span className="text-slate-900 dark:text-white font-black w-20 text-right">RM {(d.value).toLocaleString()}</span>
+                       <span className="text-slate-500 dark:text-slate-400 dark:text-slate-300 font-medium w-10 text-right">{d.pct}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-200 dark:border-white/5 shadow-sm lg:col-span-8">
+            <h3 className="text-base font-bold mb-8 text-slate-900 dark:text-white">Recent Closed Cases</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm whitespace-nowrap">
+                <thead>
+                  <tr className="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-300 font-medium border-b border-slate-100 dark:border-slate-800">
+                    <th className="pb-4 text-slate-900 dark:text-white font-bold">Client Name</th>
+                     <th className="pb-4 text-slate-900 dark:text-white font-bold">Industry</th>
+                     <th className="pb-4 text-slate-900 dark:text-white font-bold">Plan</th>
+                     <th className="pb-4 text-slate-900 dark:text-white font-bold">Project Status</th>
+                     <th className="pb-4 text-slate-900 dark:text-white font-bold">Amount (RM)</th>
+                     <th className="pb-4 text-slate-900 dark:text-white font-bold text-center">Closing Status</th>
+                     <th className="pb-4 text-slate-900 dark:text-white font-bold text-right">Closing Date</th>
+                   </tr>
+                 </thead>
+                 <tbody>
+                   {[
+                     { cl: 'Sunshine Properties', ind: 'Real Estate', plan: 'Enterprise Pro', pStatus: 'Implementation', pStatusColor: 'text-blue-500', val: '128,690', status: 'Demo', statusColor: 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400 border-blue-200 dark:border-blue-800', date: '2025-05-31' },
+                     { cl: 'Smart Tech Mfg.', ind: 'Technology', plan: 'Business Plus', pStatus: 'In Review', pStatusColor: 'text-amber-500', val: '112,300', status: '1st Follow Up', statusColor: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800', date: '2025-05-28' },
+                     { cl: 'Apex Logistics', ind: 'Logistics', plan: 'Enterprise Basic', pStatus: 'Active', pStatusColor: 'text-emerald-500', val: '86,400', status: 'Broadcast', statusColor: 'bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400 border-purple-200 dark:border-purple-800', date: '2025-05-25' },
+                     { cl: 'Nova Retail Group', ind: 'Retail', plan: 'Business Plus', pStatus: 'Pending', pStatusColor: 'text-slate-500', val: '65,000', status: '2nd Follow Up', statusColor: 'bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400 border-amber-200 dark:border-amber-800', date: '2025-05-20' },
+                     { cl: 'Vertex Solutions', ind: 'Technology', plan: 'Enterprise Pro', pStatus: 'Implementation', pStatusColor: 'text-blue-500', val: '154,200', status: 'Demo', statusColor: 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400 border-blue-200 dark:border-blue-800', date: '2025-05-18' },
+                   ].map((row, i) => (
+                     <tr key={i} className="border-b last:border-0 border-slate-50 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                       <td className="py-3 font-bold text-slate-900 dark:text-white text-sm">{row.cl}</td>
+                       <td className="py-3 text-slate-500 dark:text-slate-400 dark:text-slate-300 text-xs">{row.ind}</td>
+                       <td className="py-3 text-slate-900 dark:text-white text-xs font-medium">{row.plan}</td>
+                       <td className={`py-3 text-xs font-bold ${row.pStatusColor}`}>{row.pStatus}</td>
+                       <td className="py-3 text-slate-900 dark:text-white text-xs font-mono font-bold">RM {row.val}</td>
+                       <td className="py-3 text-center">
+                         <span className={`px-2 py-1 text-[10px] uppercase tracking-widest font-bold border rounded-md ${row.statusColor}`}>
+                            {row.status}
+                         </span>
+                       </td>
+                       <td className="py-3 text-slate-500 dark:text-slate-400 dark:text-slate-300 text-xs font-mono text-right">{row.date}</td>
+                     </tr>
+                   ))}
+                </tbody>
+              </table>
+              <button className="flex items-center justify-center gap-1 w-full mt-6 text-sm font-bold text-primary dark:text-purple-400 hover:text-primary dark:text-purple-300 transition-colors">
+                View All Records <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
+          
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-200 dark:border-white/5 shadow-sm lg:col-span-12">
+            <h3 className="text-base font-bold mb-8 text-slate-900 dark:text-white flex items-center gap-2">
+              <ActivitySquare className="text-primary dark:text-purple-400" size={20} /> 
+              Manager AI: Post-Purchase Monitoring
+            </h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm whitespace-nowrap">
+                <thead>
+                  <tr className="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-300 font-medium border-b border-slate-100 dark:border-slate-800">
+                    <th className="pb-4 text-slate-900 dark:text-white font-bold">Client / Plan</th>
+                    <th className="pb-4 text-slate-900 dark:text-white font-bold">AI Sentiment</th>
+                    <th className="pb-4 text-slate-900 dark:text-white font-bold">Usage Metric</th>
+                    <th className="pb-4 text-slate-900 dark:text-white font-bold">AI Recommendation</th>
+                    <th className="pb-4 text-slate-900 dark:text-white font-bold text-right">Last Touchpoint</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                     { cl: 'Sunshine Properties', plan: 'Enterprise Pro', sentiment: 'Positive', sentimentColor: 'text-emerald-500 bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-800', usage: '85% Seats Active', rec: 'Ready for cross-sell (Add-on Modules)', date: '2 days ago' },
+                     { cl: 'Smart Tech Mfg.', plan: 'Business Plus', sentiment: 'Neutral', sentimentColor: 'text-amber-500 bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-800', usage: '42% Seats Active', rec: 'Schedule training session', date: '5 days ago' },
+                     { cl: 'Apex Logistics', plan: 'Enterprise Basic', sentiment: 'Negative', sentimentColor: 'text-red-500 bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-800', usage: '15% Seats Active', rec: 'High churn risk, immediate outreach', date: '1 week ago' },
+                  ].map((row, i) => (
+                    <tr key={i} className="border-b last:border-0 border-slate-50 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                      <td className="py-4">
+                        <p className="font-bold text-slate-900 dark:text-white text-sm">{row.cl}</p>
+                        <p className="text-slate-500 text-xs">{row.plan}</p>
+                      </td>
+                      <td className="py-4">
+                        <span className={`px-2 py-1 text-[10px] uppercase tracking-widest font-bold border rounded-md ${row.sentimentColor}`}>
+                           {row.sentiment}
+                        </span>
+                      </td>
+                      <td className="py-4 text-slate-700 dark:text-slate-300 text-sm font-medium">{row.usage}</td>
+                      <td className="py-4 text-slate-600 dark:text-slate-400 text-sm font-medium max-w-[200px] truncate" title={row.rec}>{row.rec}</td>
+                      <td className="py-4 text-slate-400 text-xs font-mono text-right">{row.date}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <button className="flex items-center justify-center gap-1 w-full mt-6 text-sm font-bold text-primary dark:text-purple-400 hover:text-primary dark:text-purple-300 transition-colors">
+                View Full AI Report <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  );
+}
