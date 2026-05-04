@@ -7,17 +7,20 @@ import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import TemplatesAdmin from './pages/TemplatesAdmin';
 import Login from './pages/Login';
+import DataEntry from './pages/DataEntry'; // ← NEW
 import { AuthProvider, useAuth } from './components/AuthProvider';
 import { playClickSound, playGlorySound, playTransitionSound } from './lib/sounds';
 import GlobalNotifier from './components/GlobalNotifier';
 
+// ── EXTENDED TAB TYPE ─────────────────────────────────────────────
+type TabType = 'hub' | 'analytics' | 'profile' | 'settings' | 'widgets' | 'data-entry';
+
 function AuthenticatedApp() {
   const { user, profile, loading } = useAuth();
-  const [activeTab, setActiveTab] = useState<'hub' | 'analytics' | 'profile' | 'settings' | 'widgets'>('hub');
+  const [activeTab, setActiveTab] = useState<TabType>('hub');
   const location = useLocation();
 
   useEffect(() => {
-    // Determine sound based on session state
     const hasPlayedGlory = sessionStorage.getItem('hasPlayedGlorySound');
     if (!hasPlayedGlory) {
       playGlorySound();
@@ -56,7 +59,10 @@ function AuthenticatedApp() {
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 p-8 rounded-[2rem] max-w-md shadow-xl">
           <h2 className="text-2xl font-black uppercase tracking-tighter text-slate-900 dark:text-white mb-4">Pending Approval</h2>
           <p className="text-slate-500 mb-6">Your account requires an administrator's approval before you can access the system. Please wait.</p>
-          <button onClick={() => window.location.href = '/'} className="px-6 py-2 bg-primary text-white text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-primary/90 transition-colors">
+          <button
+            onClick={() => window.location.href = '/'}
+            className="px-6 py-2 bg-primary text-white text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-primary/90 transition-colors"
+          >
             Refresh
           </button>
         </div>
@@ -69,12 +75,13 @@ function AuthenticatedApp() {
       <GlobalNotifier />
       <Layout activeTab={activeTab} onTabChange={setActiveTab}>
         <Routes>
-          <Route path="/hub" element={<AgentHub />} />
-          <Route path="/analytics" element={<Analytics />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/widgets" element={<TemplatesAdmin />} />
-          <Route path="*" element={<Navigate to="/hub" />} />
+          <Route path="/hub"        element={<AgentHub />} />
+          <Route path="/analytics"  element={<Analytics />} />
+          <Route path="/profile"    element={<Profile />} />
+          <Route path="/settings"   element={<Settings />} />
+          <Route path="/widgets"    element={<TemplatesAdmin />} />
+          <Route path="/data-entry" element={<DataEntry />} /> {/* ← NEW */}
+          <Route path="*"           element={<Navigate to="/hub" />} />
         </Routes>
       </Layout>
     </>

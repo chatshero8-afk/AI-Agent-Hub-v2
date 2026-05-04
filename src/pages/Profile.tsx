@@ -1,5 +1,5 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
-import { motion, AnimatePresence, Reorder } from 'framer-motion';
+import { motion, AnimatePresence, Reorder } from 'motion/react';
 import { 
   User, Shield, Zap, Target, 
   BarChart3, RefreshCcw, Sparkles,
@@ -18,47 +18,24 @@ import {
   PieChart as RechartsPieChart, Pie, Cell
 } from 'recharts';
 
-const dummyConversionData = [
-  { name: 'Mon', paid: 12, deposit: 8 },
-  { name: 'Tue', paid: 18, deposit: 12 },
-  { name: 'Wed', paid: 15, deposit: 10 },
-  { name: 'Thu', paid: 25, deposit: 15 },
-  { name: 'Fri', paid: 20, deposit: 13 },
-  { name: 'Sat', paid: 30, deposit: 20 },
-  { name: 'Sun', paid: 28, deposit: 18 },
-];
-import { Department, TodoItem, TargetItem, CalendarEvent, ActivityLog, AutomationGoal, DepartmentWidget } from '../types';
+import { useSheetsData } from '../lib/useSheetsData';
+import ProfileSheetsStats from '../components/ProfileSheetsStats';
+import { Department, TodoItem, TargetItem, CalendarEvent, ActivityLog, AutomationGoal } from '../types';
 import { playSuccessSound } from '../lib/sounds';
 import SalesDashboardTemplate from '../components/templates/SalesDashboardTemplate';
 
-const monthlySalesData = [
-  { name: 'Jan', value: 300000, label: '300k' },
-  { name: 'Feb', value: 480000, label: '480k' },
-  { name: 'Mar', value: 430000, label: '430k' },
-  { name: 'Apr', value: 750000, label: '750k' },
-  { name: 'May', value: 1300000, label: '1.3M' },
-  { name: 'Jun', value: 700000, label: '700k' },
-  { name: 'Jul', value: 800000, label: '800k' },
-  { name: 'Aug', value: 850000, label: '850k' },
-  { name: 'Sep', value: 1200000, label: '1.2M' },
-  { name: 'Oct', value: 1000000, label: '1.0M' },
-  { name: 'Nov', value: 800000, label: '800k' },
-  { name: 'Dec', value: 950000, label: '950k' },
-];
-const closingRateData = [
-  { name: 'Jan', value: 18.5, label: '18.5%' },
-  { name: 'Feb', value: 16.2, label: '16.2%' },
-  { name: 'Mar', value: 14.8, label: '14.8%' },
-  { name: 'Apr', value: 20.1, label: '20.1%' },
-  { name: 'May', value: 22.7, label: '22.7%' },
-  { name: 'Jun', value: 15.3, label: '15.3%' },
-  { name: 'Jul', value: 16.1, label: '16.1%' },
-  { name: 'Aug', value: 21.4, label: '21.4%' },
-  { name: 'Sep', value: 18.2, label: '18.2%' },
-  { name: 'Oct', value: 16.5, label: '16.5%' },
-  { name: 'Nov', value: 19.3, label: '19.3%' },
-  { name: 'Dec', value: 22, label: '22%' },
-];
+// Data will now be fetched from useSheetsData() hook in the component
+function StatCard({ label, value, sub, color = 'text-primary' }: {
+  label: string; value: string | number; sub?: string; color?: string;
+}) {
+  return (
+    <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4 border border-slate-100 dark:border-white/5">
+      <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">{label}</p>
+      <p className={cn('text-2xl font-black italic tracking-tighter', color)}>{value}</p>
+      {sub && <p className="text-[10px] text-slate-400 mt-0.5">{sub}</p>}
+    </div>
+  );
+}
 
 const MORANDI_COLORS = [
   { id: 'sage', name: 'Sage', bg: 'bg-[#d2dbc8] dark:bg-[#c3ccb9]', text: 'text-[#6a7b5e]', border: 'border-[#b5c2a9]', accent: '#829573' },
@@ -505,7 +482,16 @@ export default function Profile() {
   if (targets.length > 0) scoreDivisor++;
   if (automationGoal) scoreDivisor++;
 
-  const totalScore = scoreDivisor > 0 ? ((taskKpi + targetKpi + automationKpi) / scoreDivisor) : 8.5;
+  const { stats, loading: sheetsLoading } = useSheetsData(profile?.name || 'Jacky');
+
+  // Score mappings from dynamic stats
+  const sheetTotalScore = stats ? (
+    (Math.min(10, (stats.currentMonthSales / 1000000) * 10) + 
+     Math.min(10, (stats.closingRate / 25) * 10) + 
+     Math.min(10, (stats.casesClosedRecent / 100) * 10)) / 3
+  ) : 8.5;
+
+  const totalScore = sheetsLoading ? 8.5 : Math.max(scoreDivisor > 0 ? ((taskKpi + targetKpi + automationKpi) / scoreDivisor) : sheetTotalScore, 0);
 
   let gradeTitle = '「 Processing Data 」';
   if (totalScore >= 9) gradeTitle = '「 Perfect Execution 」';
@@ -529,9 +515,13 @@ export default function Profile() {
   return (
     <div className="w-full mx-auto space-y-6 pb-12 px-0">
       {/* Character Performance Header */}
-      <div className="relative overflow-hidden rounded-3xl bg-white dark:bg-slate-900 p-6 lg:p-8 border border-slate-200 dark:border-white/10 shadow-2xl transition-colors duration-300">
+      <div className="relative overflow-hidden rounded-[2.5rem] bg-white dark:bg-[#06060c] p-6 lg:p-12 border border-slate-200 dark:border-white/5 shadow-2xl transition-colors duration-300">
+        {/* Abstract Background Elements */}
+        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[120px] -mr-64 -mt-64 pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-[#00ff9d]/5 rounded-full blur-[100px] -ml-40 -mb-40 pointer-events-none" />
+        
         {/* Top Header Row */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
              <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
                 Neural Output Result
@@ -540,81 +530,32 @@ export default function Profile() {
           </div>
         </div>
 
-        <div className="relative flex flex-col md:flex-row gap-8 w-full">
+        <div className="relative flex flex-col lg:flex-row gap-12 w-full items-start">
           {/* Left Side: Sales Stats */}
-          <div className="flex-1 space-y-6 pt-2">
-             <div>
-               <div className="flex items-center justify-between mb-2">
-                 <div className="text-xs font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2">
-                   <span className="w-1.5 h-1.5 rounded-full bg-[#00ff9d] drop-shadow-[0_0_5px_rgba(0,255,157,0.8)]" /> Current Month Sales
-                 </div>
-                 <div className="text-sm font-black text-[#ff2a5f] bg-[#ff2a5f]/10 px-3 py-1 rounded-xl border border-[#ff2a5f] drop-shadow-[0_0_8px_rgba(255,42,95,0.6)] flex items-center gap-1.5">
-                   ⏳ {new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate() - new Date().getDate()} Days Left
-                 </div>
-               </div>
-               <div className="flex items-baseline gap-2 group">
-                  <span className="text-5xl sm:text-7xl lg:text-8xl font-black text-[#00ff9d] leading-none tracking-tighter drop-shadow-[0_0_25px_rgba(0,255,157,0.6)] group-hover:drop-shadow-[0_0_40px_rgba(0,255,157,0.8)] transition-all duration-300 font-sans italic">
-                    RM 1,286,450
-                  </span>
-               </div>
-               <p className="text-sm font-bold text-[#00ff9d] drop-shadow-[0_0_5px_rgba(0,255,157,0.4)] mt-2 flex items-center gap-1">
-                 ▲ 12.5% <span className="text-slate-500 font-medium drop-shadow-none">vs last month</span>
-               </p>
-             </div>
-             
-             <div className="flex gap-4 sm:gap-6 flex-wrap">
-               <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Cases Closed</p>
-                  <div className="flex items-center gap-3">
-                    <span className="text-4xl sm:text-5xl font-black text-slate-900 dark:text-white leading-none tracking-tighter font-sans italic">
-                      128
-                    </span>
-                    <span className="flex items-center justify-center bg-[#00ff9d]/10 text-[#00ff9d] px-2 py-0.5 rounded-md text-[10px] font-bold uppercase border border-[#00ff9d]/20 drop-shadow-[0_0_5px_rgba(0,255,157,0.3)]" title="Personal Recent Closed Cases">
-                      +12 Recent
-                    </span>
-                  </div>
-               </div>
-               <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Closing Rate</p>
-                  <span className="text-4xl sm:text-5xl font-black text-secondary leading-none tracking-tighter font-sans drop-shadow-[0_0_10px_rgba(236,72,153,0.3)] italic">
-                    85.8%
-                  </span>
-               </div>
-               <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Engagements</p>
-                  <span className="text-4xl sm:text-5xl font-black text-blue-500 leading-none tracking-tighter font-sans drop-shadow-[0_0_10px_rgba(59,130,246,0.3)] italic">
-                    342
-                  </span>
-               </div>
-               <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1 flex items-center gap-1"><Coins size={12} className="text-amber-500" /> Bonus Earned</p>
-                  <span className="text-4xl sm:text-5xl font-black text-[#ffaa00] leading-none tracking-tighter font-sans drop-shadow-[0_0_25px_rgba(255,170,0,0.9)] italic group-hover:drop-shadow-[0_0_40px_rgba(255,170,0,1)] transition-all duration-300">
-                    RM 800
-                  </span>
-               </div>
-             </div>
+          <div className="flex-1 w-full">
+             <ProfileSheetsStats />
           </div>
 
-          <div className="relative flex flex-col items-center justify-center md:pr-4 md:max-w-xs w-full">
-            <div className="relative w-56 h-56 flex items-center justify-center scale-90 md:scale-100 group">
-              {/* Background Glow */}
-              <div className="absolute inset-0 bg-primary/20 rounded-full blur-[60px] mix-blend-screen opacity-50 group-hover:opacity-80 transition-opacity duration-700" />
+          <div className="relative flex flex-col items-center justify-center lg:w-80 w-full lg:sticky lg:top-4">
+            <div className="relative w-64 h-64 flex items-center justify-center scale-90 md:scale-110">
+              {/* Meter Glows */}
+              <div className="absolute inset-0 bg-primary/10 rounded-full blur-[80px] pointer-events-none" />
               
-              {/* Background Arc */}
-              <div className="absolute inset-4 rounded-full border-[8px] border-slate-100 dark:border-white/5 opacity-50" />
+              {/* Gray Track */}
+              <div className="absolute inset-4 rounded-full border-[10px] border-slate-100 dark:border-white/5" />
               
-              {/* Progress Arc */}
-              <svg className="absolute inset-0 w-full h-full -rotate-[220deg] drop-shadow-[0_0_15px_rgba(139,92,246,0.8)] filter">
+              {/* Circular Meter (Main Progress) */}
+              <svg className="absolute inset-0 w-full h-full -rotate-[220deg] drop-shadow-[0_0_15px_rgba(139,92,246,0.6)]">
                 <motion.circle
-                  cx="112" cy="112" r="80"
+                  cx="128" cy="128" r="92"
                   fill="none"
                   stroke="currentColor"
-                  strokeWidth="8"
-                  strokeDasharray="502"
-                  strokeDashoffset="502"
-                  initial={{ strokeDashoffset: 502 }}
-                  animate={{ strokeDashoffset: 502 * (1 - (totalScore / 10)) }}
-                  transition={{ duration: 1.5, delay: 0.5, ease: "easeOut" }}
+                  strokeWidth="10"
+                  strokeDasharray="578"
+                  strokeDashoffset="578"
+                  initial={{ strokeDashoffset: 578 }}
+                  animate={{ strokeDashoffset: 578 * (1 - (totalScore / 10)) }}
+                  transition={{ duration: 2, delay: 0.5, ease: "circOut" }}
                   strokeLinecap="round"
                   className="text-primary"
                 />
@@ -622,47 +563,38 @@ export default function Profile() {
 
               {/* Character Mascot Wrapper */}
               <motion.div 
-                animate={{ y: [0, -10, 0] }}
+                animate={{ y: [0, -8, 0] }}
                 transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-                className="relative z-10 w-40 h-40 flex items-center justify-center drop-shadow-[0_0_20px_rgba(139,92,246,0.5)] cursor-pointer"
+                className="relative z-10 w-44 h-44 flex items-center justify-center cursor-pointer group"
                 onClick={() => fileInputRef.current?.click()}
               >
-                <div className="w-32 h-32 rounded-full bg-slate-50 dark:bg-slate-900 flex items-center justify-center overflow-hidden border-[3px] border-white dark:border-slate-800 shadow-[0_0_30px_rgba(139,92,246,0.7)] relative group">
-                   <div className="absolute inset-0 bg-gradient-to-tr from-primary/30 via-transparent to-secondary/30 z-0 opacity-50" />
-                   <img src={profile?.avatar || "/icons/chatshero.webp"} alt="Avatar" className="relative z-10 w-full h-full object-cover mix-blend-normal" />
-                   <div className="absolute -top-4 -right-4 blur-3xl bg-primary/50 w-16 h-16 rounded-full z-0 animate-pulse" />
+                <div className="w-36 h-36 rounded-full bg-black flex items-center justify-center overflow-hidden border-[4px] border-slate-900 shadow-[0_0_40px_rgba(139,92,246,0.4)] relative">
+                   <div className="absolute inset-0 bg-gradient-to-tr from-primary/40 via-transparent to-secondary/40 z-0 opacity-40 group-hover:opacity-60 transition-opacity" />
+                   <img src={profile?.avatar || "/icons/chatshero.webp"} alt="Avatar" className="relative z-10 w-full h-full object-cover grayscale-[0.2] hover:scale-110 transition-transform duration-700" />
                    
-                   {/* Hover Overlay for Upload */}
-                   <div className="absolute inset-0 z-20 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                     <Camera className="text-white" size={32} />
+                   {/* Hover Overlay */}
+                   <div className="absolute inset-0 z-20 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                     <Camera className="text-white/80" size={32} />
                    </div>
-                   
-                   {/* Uploading Overlay */}
-                   {isUploading && (
-                     <div className="absolute inset-0 z-30 bg-black/60 flex items-center justify-center">
-                       <RefreshCcw className="text-white animate-spin" size={32} />
-                     </div>
-                   )}
                 </div>
                 
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  ref={fileInputRef} 
-                  className="hidden" 
-                  onChange={handleImageUpload} 
-                />
+                {/* Secondary Orbiting Lights */}
+                <div className="absolute inset-0 -z-10 animate-spin-slow opacity-30">
+                   <div className="absolute top-0 left-1/2 -translate-x-1/2 w-4 h-4 bg-primary blur-md rounded-full" />
+                </div>
               </motion.div>
             </div>
             
-            {/* Assignment Info */}
-             <div className="mt-4 flex flex-col items-center z-10 relative bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm p-4 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm w-full max-w-xs">
-              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 leading-none">Assignment</span>
-              <div className="w-full text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wide text-center">
-                 {user?.displayName || 'User'}
-                 <div className="text-[10px] text-primary mt-1">
-                   {activeTemplate === 'sales_dashboard_v1' || department === 'SalesMarketing' ? 'Sales Team' : department ? department : 'Ungrouped'}
-                 </div>
+            {/* Assignment Info — The Dark Dark Box */}
+             <div className="mt-6 flex flex-col items-center z-10 relative bg-[#0a0a0f] p-6 rounded-2xl border border-white/5 shadow-2xl w-full min-w-[200px]">
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-2 leading-none">Assignment</span>
+              <div className="flex flex-col items-center text-center space-y-1">
+                 <span className="text-sm font-black text-white uppercase tracking-wider drop-shadow-sm">
+                    {profile?.name || user?.displayName || 'Jacky'}
+                 </span>
+                 <span className="text-[11px] font-bold text-primary/80 uppercase tracking-widest px-2 py-0.5 rounded bg-primary/5">
+                   {department === 'SalesMarketing' ? 'Poster Tailor Elite' : department ? department : 'Ungrouped'}
+                 </span>
               </div>
             </div>
 
@@ -767,7 +699,7 @@ export default function Profile() {
                </p>
                <div className="mt-4 pt-4 border-t border-slate-200 dark:border-white/5 flex items-center justify-between">
                   <span className="text-[10px] font-bold text-slate-500 uppercase">Overall Performance Scoring</span>
-                  <span className="text-lg font-black text-primary italic">8.5 / 10</span>
+                  <span className="text-lg font-black text-primary italic">{totalScore.toFixed(1)} / 10</span>
                </div>
              </div>
            </div>
@@ -786,9 +718,13 @@ export default function Profile() {
                        </div>
                        <span className="px-2 py-1 bg-white/20 rounded-md text-[10px] font-black uppercase text-white tracking-widest backdrop-blur-sm border border-white/20">Goal Achieved</span>
                     </div>
-                    <h5 className="font-black text-white text-lg leading-none mb-2 drop-shadow-sm uppercase italic">RM 40k Milestone Reached!</h5>
+                    <h5 className="font-black text-white text-lg leading-none mb-2 drop-shadow-sm uppercase italic">
+                      {stats?.totalSales && stats.totalSales >= 80000 ? 'Highest Tier Reached!' : stats?.totalSales && stats.totalSales >= 40000 ? 'RM 40k Milestone Reached!' : 'Push for RM 40k Tier!'}
+                    </h5>
                     <p className="text-xs text-rose-100 font-medium leading-relaxed drop-shadow-sm">
-                      Congratulations! You've successfully hit your sales target. Your RM 800 bonus has been unlocked and added to your wallet.
+                      {stats?.totalSales && stats.totalSales >= 40000 
+                        ? `Congratulations! You've unlocked RM ${stats.bonusEarned?.toLocaleString() || '800'} bonus. Your performance is trending upward.`
+                        : `You are currently at RM ${(stats?.totalSales || 0).toLocaleString()}. Closing RM ${(40000 - (stats?.totalSales || 0)).toLocaleString()} more will unlock your first bonus tier!`}
                     </p>
                   </div>
                   
@@ -840,10 +776,10 @@ export default function Profile() {
                   <Trophy className="text-primary dark:text-purple-400" size={20} /> Top Sales Leaderboard
                 </h3>
                 <div className="space-y-6 flex-1">
-                  {[ 
+                  {(stats?.salesLeaderboard || [ 
                     { rank: 1, name: 'Alex W.', dept: 'Sales Dept (East)', rev: '442,590', deals: 128, trend: '21.5%', img: 'https://api.dicebear.com/7.x/notionists/svg?seed=wang' },
                     { rank: 2, name: 'Sarah L.', dept: 'Sales Dept (South)', rev: '428,760', deals: 92, trend: '16.3%', img: 'https://api.dicebear.com/7.x/notionists/svg?seed=li' }
-                  ].map((rep, i) => (
+                  ]).map((rep, i) => (
                     <div key={i} className="flex items-center gap-5 group/item transition-all hover:translate-x-1">
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black ${i === 0 ? 'bg-amber-100 text-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.3)]' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 dark:text-slate-300'}`}>
                         {rep.rank}
@@ -872,10 +808,10 @@ export default function Profile() {
                   <Zap className="text-indigo-400" size={20} /> Closing Rate Leagueboard
                 </h3>
                 <div className="space-y-6 flex-1">
-                  {[ 
+                  {(stats?.closingLeaderboard || [ 
                     { rank: 1, name: 'Sarah L.', dept: 'Sales Dept (South)', rate: '32.4%', deals: 92, trend: '+2.1pp', img: 'https://api.dicebear.com/7.x/notionists/svg?seed=li' },
                     { rank: 2, name: 'Alex W.', dept: 'Sales Dept (East)', rate: '28.7%', deals: 128, trend: '+1.4pp', img: 'https://api.dicebear.com/7.x/notionists/svg?seed=wang' }
-                  ].map((rep, i) => (
+                  ]).map((rep, i) => (
                     <div key={i} className="flex items-center gap-5 group/item transition-all hover:translate-x-1">
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black ${i === 0 ? 'bg-indigo-100 text-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.3)]' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 dark:text-slate-300'}`}>
                         {rep.rank}
@@ -910,15 +846,17 @@ export default function Profile() {
                   <div className="flex justify-between items-end mb-2">
                     <div>
                       <p className="text-[10px] uppercase font-black text-slate-400 tracking-widest">Current Sales</p>
-                      <p className="font-black text-3xl text-slate-900 dark:text-white mt-1 italic tracking-tighter">RM 40,000</p>
+                      <p className="font-black text-3xl text-slate-900 dark:text-white mt-1 italic tracking-tighter">RM {(stats?.totalSales || 40000).toLocaleString()}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-[10px] uppercase font-black text-amber-500 tracking-[0.15em] bg-amber-500/10 px-3 py-1 rounded-xl border border-amber-500/20 shadow-[0_0_10px_rgba(245,158,11,0.2)]">Unlocked: RM 800</p>
+                      <p className="text-[10px] uppercase font-black text-amber-500 tracking-[0.15em] bg-amber-500/10 px-3 py-1 rounded-xl border border-amber-500/20 shadow-[0_0_10px_rgba(245,158,11,0.2)]">Unlocked: RM {(stats?.bonusEarned || 800).toLocaleString()}</p>
                     </div>
                   </div>
                   {/* Progress bar up to 80k */}
                   <div className="h-4 w-full bg-slate-100 dark:bg-slate-800/50 rounded-full overflow-hidden relative border border-slate-200 dark:border-white/5 shadow-inner">
-                     <div className="h-full bg-gradient-to-r from-amber-400 to-amber-500 w-[50%] rounded-full relative shadow-[0_0_15px_rgba(245,158,11,0.4)]" />
+                     <div className="h-full bg-gradient-to-r from-amber-400 to-amber-500 rounded-full relative shadow-[0_0_15px_rgba(245,158,11,0.4)]" 
+                       style={{ width: `${Math.min(100, ((stats?.totalSales || 40000) / 80000) * 100)}%` }}
+                     />
                      <div className="absolute top-0 bottom-0 left-[50%] w-0.5 bg-white/30 dark:bg-slate-900/30" />
                      <div className="absolute top-0 bottom-0 left-[75%] w-0.5 bg-white/30 dark:bg-slate-900/30" />
                   </div>
@@ -930,24 +868,24 @@ export default function Profile() {
                   </div>
                </div>
 
-               {[
-                 { target: '40', amount: '800', unlock: true },
-                 { target: '60', amount: '1,500', unlock: false },
-                 { target: '80', amount: '2,300', unlock: false },
-               ].map((tier, i) => (
-                 <div key={i} className={`flex items-center justify-between p-4 rounded-[2rem] border transition-all ${tier.unlock ? 'bg-amber-500/5 border-amber-500/20 shadow-lg group/tier' : 'bg-slate-50 dark:bg-slate-800/30 border-slate-100 dark:border-white/5'}`}>
+               {(stats?.bonusTier || [
+                 { target: 40000, amount: 800, unlocked: true },
+                 { target: 60000, amount: 1500, unlocked: false },
+                 { target: 80000, amount: 2300, unlocked: false },
+               ]).map((tier, i) => (
+                 <div key={i} className={`flex items-center justify-between p-4 rounded-[2rem] border transition-all ${tier.unlocked ? 'bg-amber-500/5 border-amber-500/20 shadow-lg group/tier' : 'bg-slate-50 dark:bg-slate-800/30 border-slate-100 dark:border-white/5'}`}>
                     <div className="flex items-center gap-4">
-                       <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 transition-transform group-hover/tier:scale-110 ${tier.unlock ? 'bg-amber-500 text-white shadow-xl shadow-amber-500/40 animate-pulse' : 'bg-slate-200 dark:bg-slate-700/50 text-slate-400 dark:text-slate-500'}`}>
-                         {tier.unlock ? <Award size={24} /> : <Target size={24} />}
+                       <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 transition-transform group-hover/tier:scale-110 ${tier.unlocked ? 'bg-amber-500 text-white shadow-xl shadow-amber-500/40 animate-pulse' : 'bg-slate-200 dark:bg-slate-700/50 text-slate-400 dark:text-slate-500'}`}>
+                         {tier.unlocked ? <Award size={24} /> : <Target size={24} />}
                        </div>
                        <div>
                           <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] mb-0.5">Target Hit</p>
-                          <p className={`font-black text-base italic ${tier.unlock ? 'text-slate-900 dark:text-white' : 'text-slate-400'}`}>RM {tier.target}k</p>
+                          <p className={`font-black text-base italic ${tier.unlocked ? 'text-slate-900 dark:text-white' : 'text-slate-400'}`}>RM {Math.round(tier.target/1000)}k</p>
                        </div>
                     </div>
                     <div className="text-right">
                        <p className="text-[10px] uppercase font-black tracking-[0.2em] text-slate-400 mb-0.5">Bonus</p>
-                       <p className={`font-black text-xl italic ${tier.unlock ? 'text-amber-500 drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]' : 'text-slate-400'}`}>RM {tier.amount}</p>
+                       <p className={`font-black text-xl italic ${tier.unlocked ? 'text-amber-500 drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]' : 'text-slate-400'}`}>RM {tier.amount.toLocaleString()}</p>
                     </div>
                  </div>
                ))}
@@ -961,17 +899,21 @@ export default function Profile() {
                <Target className="text-secondary" size={20} /> Monthly Targets
             </h3>
             <div className="space-y-4">
-              {[ 
-                { label: 'Sales Goal', icon: Wallet, current: '1,286,450', max: '1,500,000', pct: 85.8 },
-                { label: 'Calls Goal', icon: Phone, current: '1,200', max: '1,500', pct: 80.0 },
-                { label: 'Appointments Goal', icon: Briefcase, current: '325', max: '500', pct: 65.0 },
-                { label: 'Follow-up Goal', icon: Presentation, current: '165', max: '250', pct: 66.0 },
-                { label: 'Closing Goal', icon: ActivitySquare, current: '356', max: '500', pct: 71.2 },
-              ].map((t, i) => (
+              {(stats?.monthlyTargets || [ 
+                { label: 'Sales Goal', current: '1,286,450', max: '1,500,000', pct: 85.8 },
+                { label: 'Calls Goal', current: '1,200', max: '1,500', pct: 80.0 },
+                { label: 'Appointments Goal', current: '325', max: '500', pct: 65.0 },
+                { label: 'Follow-up Goal', current: '165', max: '250', pct: 66.0 },
+                { label: 'Closing Goal', current: '356', max: '500', pct: 71.2 },
+              ]).map((t, i) => {
+                const Icon = i === 0 ? Wallet : i === 1 ? Phone : i === 2 ? Briefcase : i === 3 ? Presentation : ActivitySquare;
+                return (
                 <div key={i} className="group/target">
                   <div className="flex justify-between items-center text-[11px] font-black mb-2 uppercase tracking-wide">
                     <span className="text-slate-700 dark:text-slate-200 flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-xl bg-secondary/10 flex items-center justify-center text-secondary border border-secondary/20 shadow-inner group-hover/target:scale-110 transition-transform"><t.icon size={14} /></div>
+                      <div className="w-8 h-8 rounded-xl bg-secondary/10 flex items-center justify-center text-secondary border border-secondary/20 shadow-inner group-hover/target:scale-110 transition-transform">
+                        <Icon size={14} />
+                      </div>
                       {t.label}
                     </span>
                     <span className="text-slate-600 dark:text-slate-300 font-mono">
@@ -988,7 +930,7 @@ export default function Profile() {
                     />
                   </div>
                 </div>
-              ))}
+              )})}
             </div>
         </div>
       </div>
@@ -1046,7 +988,7 @@ export default function Profile() {
 
                 {/* Level Labels */}
                 <text x="100" y="18" textAnchor="middle" fill="white" className="text-[10px] font-black uppercase tracking-widest">Leads</text>
-                <text x="100" y="34" textAnchor="middle" fill="white" className="text-xs font-black">1,982</text>
+                <text x="100" y="34" textAnchor="middle" fill="white" className="text-xs font-black">{(stats?.funnelLeads || 1982).toLocaleString()}</text>
                 
                 {/* Dividers */}
                 <line x1="40" y1="46" x2="160" y2="46" stroke="white" strokeOpacity="0.2" strokeWidth="1" />
@@ -1054,22 +996,22 @@ export default function Profile() {
                 <line x1="72" y1="136" x2="128" y2="136" stroke="white" strokeOpacity="0.2" strokeWidth="1" />
 
                 <text x="100" y="68" textAnchor="middle" fill="white" className="text-[9px] font-black uppercase tracking-widest opacity-80">Appointment</text>
-                <text x="100" y="83" textAnchor="middle" fill="white" className="text-[11px] font-black">642</text>
-                <text x="178" y="81" textAnchor="middle" fill="#EC4899" className="text-[11px] font-black drop-shadow-[0_0_8px_rgba(236,72,153,0.5)]">32.4%</text>
+                <text x="100" y="83" textAnchor="middle" fill="white" className="text-[11px] font-black">{(stats?.funnelAppointments || 642).toLocaleString()}</text>
+                <text x="178" y="81" textAnchor="middle" fill="#EC4899" className="text-[11px] font-black drop-shadow-[0_0_8px_rgba(236,72,153,0.5)]">{stats?.funnelApptRate || '32.4'}%</text>
                 
                 <text x="100" y="114" textAnchor="middle" fill="white" className="text-[9px] font-black uppercase tracking-widest opacity-80">Attended</text>
-                <text x="100" y="127" textAnchor="middle" fill="white" className="text-[11px] font-black">412</text>
-                <text x="168" y="126" textAnchor="middle" fill="#10B981" className="text-[11px] font-black drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]">64.2%</text>
+                <text x="100" y="127" textAnchor="middle" fill="white" className="text-[11px] font-black">{(stats?.funnelAttended || 412).toLocaleString()}</text>
+                <text x="168" y="126" textAnchor="middle" fill="#10B981" className="text-[11px] font-black drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]">{stats?.funnelAttendedRate || '64.2'}%</text>
                 
                 <text x="100" y="152" textAnchor="middle" fill="white" className="text-[9px] font-black uppercase tracking-widest opacity-80">Closed</text>
-                <text x="100" y="165" textAnchor="middle" fill="white" className="text-[11px] font-black">256</text>
-                <text x="158" y="163" textAnchor="middle" fill="#10B981" className="text-[11px] font-black drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]">62.1%</text>
+                <text x="100" y="165" textAnchor="middle" fill="white" className="text-[11px] font-black">{(stats?.funnelClosed || 256).toLocaleString()}</text>
+                <text x="158" y="163" textAnchor="middle" fill="#10B981" className="text-[11px] font-black drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]">{stats?.funnelClosedRate || '62.1'}%</text>
               </svg>
             </div>
 
             <div className="mt-8 p-4 bg-slate-800/50 rounded-2xl border border-white/5 flex items-center justify-between">
               <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Overall Conversion (Leads → Closed)</span>
-              <span className="text-xl font-black text-[#EC4899] italic">12.9%</span>
+              <span className="text-xl font-black text-[#EC4899] italic">{stats?.funnelOverallRate || '12.9'}%</span>
             </div>
           </div>
 
@@ -1081,7 +1023,7 @@ export default function Profile() {
             </h3>
             <div className="h-[280px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={monthlySalesData} margin={{ top: 30, right: 30, left: -10, bottom: 0 }}>
+                <AreaChart data={stats?.monthlySalesData || []} margin={{ top: 30, right: 30, left: -10, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.3}/>
@@ -1121,7 +1063,7 @@ export default function Profile() {
             </h3>
             <div className="h-[280px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={closingRateData} margin={{ top: 30, right: 30, left: -10, bottom: 0 }}>
+                <AreaChart data={stats?.closingRateData || []} margin={{ top: 30, right: 30, left: -10, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorClosing" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#EC4899" stopOpacity={0.3}/>
@@ -1157,12 +1099,12 @@ export default function Profile() {
       {/* Primary KPI Row */}
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2 mb-10 relative z-10">
           {[
-            { icon: Award, titleEn: "Total Sales", titleCn: "(SALES)", value: "1,286,450", unit: "RM", trend: "18.6%", trendDir: "up" },
-            { icon: ActivitySquare, titleEn: "Total Deals", titleCn: "(DEALS CLOSED)", value: "356", trend: "12.4%", trendDir: "up" },
-            { icon: Target, titleEn: "Closing Rate", titleCn: "(CONVERSION RATE)", value: "22.7%", trend: "1.2pp", trendDir: "up" },
-            { icon: Phone, titleEn: "Calls Connected", titleCn: "(CALLS OBJECTIVE)", value: "1,200", trend: "8.7%", trendDir: "up" },
-            { icon: PieChart, titleEn: "Connection Rate", titleCn: "(CALL SUCCESS %)", value: "82.5%", trend: "4.7pp", trendDir: "up" },
-            { icon: PhoneOff, titleEn: "Missed Calls", titleCn: "(MISSED)", value: "58", trend: "9.3%", trendDir: "down" },
+            { icon: Award, titleEn: "Total Sales", titleCn: "(SALES)", value: (stats?.totalSales || 1286450).toLocaleString(), unit: "RM", trend: `${stats?.salesGrowth || 18.6}%`, trendDir: "up" },
+            { icon: ActivitySquare, titleEn: "Total Deals", titleCn: "(DEALS CLOSED)", value: (stats?.totalDeals || 356).toLocaleString(), trend: "12.4%", trendDir: "up" },
+            { icon: Target, titleEn: "Closing Rate", titleCn: "(CONVERSION RATE)", value: `${stats?.totalClosingRate || 22.7}%`, trend: "1.2pp", trendDir: "up" },
+            { icon: Phone, titleEn: "Calls Connected", titleCn: "(CALLS OBJECTIVE)", value: (stats?.callsConnected || 1200).toLocaleString(), trend: "8.7%", trendDir: "up" },
+            { icon: PieChart, titleEn: "Connection Rate", titleCn: "(CALL SUCCESS %)", value: `${stats?.connectionRate || 82.5}%`, trend: "4.7pp", trendDir: "up" },
+            { icon: PhoneOff, titleEn: "Missed Calls", titleCn: "(MISSED)", value: (stats?.missedCalls || 58).toLocaleString(), trend: "9.3%", trendDir: "down" },
           ].map((kpi, idx) => (
             <div key={idx} className="bg-[#11111d] border border-white/5 rounded-[2rem] p-5 flex flex-col justify-between h-[180px] shadow-2xl group transition-all duration-300">
               {/* Top Row: Icon and Titles */}
@@ -1224,17 +1166,17 @@ export default function Profile() {
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] mb-1">Total Spent</p>
                   <div className="flex items-baseline gap-4">
                     <span className="text-[10px] font-black text-purple-400 italic">↗ 11.5% VS PREV</span>
-                    <h3 className="text-6xl font-black text-white italic tracking-tighter filter drop-shadow-xl transition-transform group-hover/spent:scale-[1.02]">RM 58,420</h3>
+                    <h3 className="text-6xl font-black text-white italic tracking-tighter filter drop-shadow-xl transition-transform group-hover/spent:scale-[1.02]">RM {(stats?.totalSpent || 58420).toLocaleString()}</h3>
                   </div>
                </div>
 
                {/* Secondary Metrics Grid */}
                <div className="grid grid-cols-4 divide-x divide-white/5 border border-white/5 bg-white/[0.02] rounded-2xl overflow-hidden">
                  {[
-                   { label: "Leads", val: "325", trend: "8.1%", icon: Users, color: "text-blue-400" },
-                   { label: "CPL", val: "RM 179.75", trend: "4.2%", icon: Target, color: "text-emerald-400" },
-                   { label: "Appointment", val: "156", trend: "9.7%", icon: Calendar, color: "text-pink-400" },
-                   { label: "ROAS", val: "4.38x", trend: "0.5x", icon: Activity, color: "text-blue-400" }
+                   { label: "Leads", val: (stats?.leads || 325).toLocaleString(), trend: "8.1%", icon: Users, color: "text-blue-400" },
+                   { label: "CPL", val: `RM ${(stats?.cpl || 179.75).toLocaleString()}`, trend: "4.2%", icon: Target, color: "text-emerald-400" },
+                   { label: "Appointment", val: (stats?.appointments || 156).toLocaleString(), trend: "9.7%", icon: Calendar, color: "text-pink-400" },
+                   { label: "ROAS", val: `${stats?.roas || 4.38}x`, trend: "0.5x", icon: Activity, color: "text-blue-400" }
                  ].map((item, i) => (
                    <div key={i} className="p-6 flex flex-col items-center text-center group/sub hover:bg-white/[0.03] transition-colors">
                       <div className={`w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center ${item.color} mb-3 group-hover/sub:scale-110 transition-transform`}>
@@ -1275,8 +1217,8 @@ export default function Profile() {
                   <div className="text-left">
                     <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2">Paid Customer</p>
                     <div className="flex items-baseline gap-4">
-                      <span className="text-5xl font-black text-white italic tracking-tighter">98</span>
-                      <span className="text-xl font-black text-emerald-400 italic">15.6% <span className="text-[10px] font-bold text-slate-600 uppercase transition-opacity opacity-0 group-hover/paid:opacity-100 ml-1">Conv.</span></span>
+                      <span className="text-5xl font-black text-white italic tracking-tighter">{stats?.paidCustomers || 98}</span>
+                      <span className="text-xl font-black text-emerald-400 italic">{stats?.paidConversionRate || 15.6}% <span className="text-[10px] font-bold text-slate-600 uppercase transition-opacity opacity-0 group-hover/paid:opacity-100 ml-1">Conv.</span></span>
                     </div>
                   </div>
                   <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 border border-emerald-500/10">
@@ -1287,8 +1229,8 @@ export default function Profile() {
                   <div className="text-left">
                     <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2">Deposit Customer</p>
                     <div className="flex items-baseline gap-4">
-                      <span className="text-5xl font-black text-white italic tracking-tighter">56</span>
-                      <span className="text-xl font-black text-blue-400 italic">8.9% <span className="text-[10px] font-bold text-slate-600 uppercase transition-opacity opacity-0 group-hover/dep:opacity-100 ml-1">Conv.</span></span>
+                      <span className="text-5xl font-black text-white italic tracking-tighter">{stats?.depositCustomers || 56}</span>
+                      <span className="text-xl font-black text-blue-400 italic">{stats?.depositConversionRate || 8.9}% <span className="text-[10px] font-bold text-slate-600 uppercase transition-opacity opacity-0 group-hover/dep:opacity-100 ml-1">Conv.</span></span>
                     </div>
                   </div>
                   <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 border border-blue-500/10">
@@ -1300,7 +1242,7 @@ export default function Profile() {
               {/* Chart Integration */}
               <div className="flex-1 min-h-[120px] relative">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={dummyConversionData}>
+                  <AreaChart data={stats?.conversionChartData || []}>
                     <defs>
                       <linearGradient id="colorPaid" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
@@ -1353,7 +1295,7 @@ export default function Profile() {
                     <ResponsiveContainer width="100%" height="100%">
                       <RechartsPieChart>
                         <Pie
-                          data={[
+                          data={stats?.industryData || [
                             { name: 'Real Estate', value: 35.1, color: '#8B5CF6' },
                             { name: 'Education & Training', value: 22.1, color: '#3B82F6' },
                             { name: 'Financial Services', value: 14.9, color: '#10B981' },
@@ -1369,14 +1311,14 @@ export default function Profile() {
                           dataKey="value"
                           stroke="none"
                         >
-                          {[
+                          {(stats?.industryData || [
                             { color: '#8B5CF6' },
                             { color: '#3B82F6' },
                             { color: '#10B981' },
                             { color: '#F59E0B' },
                             { color: '#EC4899' },
                             { color: '#6366F1' },
-                          ].map((entry, index) => (
+                          ]).map((entry, index) => (
                             <Cell 
                               key={`cell-${index}`} 
                               fill={entry.color} 
@@ -1388,19 +1330,19 @@ export default function Profile() {
                     </ResponsiveContainer>
                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none scale-110">
                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-1">Total Sales</p>
-                       <p className="text-xl font-black text-white italic tracking-tighter">RM 1.28M</p>
+                       <p className="text-xl font-black text-white italic tracking-tighter">RM {((stats?.totalSales || 1280000)/1000000).toFixed(2)}M</p>
                     </div>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 w-full px-2">
-                   {[
+                   {(stats?.industryList || [
                      { name: 'Real Estate', pct: 35.1, val: '452,180', color: 'bg-[#8B5CF6]' },
                      { name: 'Education & Training', pct: 22.1, val: '206,743', color: 'bg-[#3B82F6]' },
                      { name: 'Financial Services', pct: 14.9, val: '191,540', color: 'bg-[#10B981]' },
                      { name: 'Retail Trade', pct: 11.1, val: '142,990', color: 'bg-[#F59E0B]' },
                      { name: 'Technology & Mfg', pct: 8.2, val: '105,650', color: 'bg-[#EC4899]' },
-                   ].map((item, i) => (
+                   ]).map((item, i) => (
                      <div key={i} className="group/item flex flex-col gap-1.5">
                         <div className="flex items-center justify-between text-[10px] font-black tracking-tight">
                            <div className="flex items-center gap-2.5 text-white/90">
@@ -1451,13 +1393,13 @@ export default function Profile() {
                  </tr>
                </thead>
                <tbody className="text-[11px] font-bold text-white">
-                 {[
+                 {(stats?.recentCases || [
                    { name: 'Sunshine Real Estate Co.', plan: 'Enterprise', industry: 'Real Estate', amount: '128,690', rep: 'Alex Wang', pic: 'Michael Tan', repImg: 'https://api.dicebear.com/7.x/notionists/svg?seed=wang', date: 'May 31', status: 'Implementation', statusColor: 'text-blue-400' },
                    { name: 'Qihang Education Group', plan: 'Business', industry: 'Education', amount: '98,540', rep: 'Sarah Li', pic: 'Wilson Khoo', repImg: 'https://api.dicebear.com/7.x/notionists/svg?seed=li', date: 'May 30', status: 'In Review', statusColor: 'text-amber-400' },
                    { name: 'Global Financial Services', plan: 'Professional', industry: 'Finance', amount: '76,320', rep: 'David Chen', pic: 'Michael Tan', repImg: 'https://api.dicebear.com/7.x/notionists/svg?seed=chen', date: 'May 29', status: 'Active', statusColor: 'text-emerald-400' },
                    { name: 'Smart Tech Manufacturing', plan: 'Enterprise', industry: 'Technology', amount: '112,300', rep: 'Alex Wang', pic: 'Wilson Khoo', repImg: 'https://api.dicebear.com/7.x/notionists/svg?seed=wang', date: 'May 28', status: 'Implementation', statusColor: 'text-blue-400' },
                    { name: 'Youyi Retail Trade', plan: 'Lite', industry: 'Retail', amount: '68,210', rep: 'Lily Zhang', pic: 'Michael Tan', repImg: 'https://api.dicebear.com/7.x/notionists/svg?seed=zhang', date: 'May 27', status: 'Pending', statusColor: 'text-slate-400' },
-                 ].map((row, i) => (
+                 ]).map((row, i) => (
                    <tr key={i} className="group/row hover:bg-white/[0.02] transition-colors border-b border-white/[0.03] last:border-0">
                      <td className="py-5 px-4">
                        <span className="font-black text-white/90 group-hover/row:text-primary transition-colors">{row.name}</span>
