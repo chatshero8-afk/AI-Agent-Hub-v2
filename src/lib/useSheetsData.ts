@@ -20,8 +20,12 @@ import { doc, onSnapshot } from 'firebase/firestore';
 
 // AI Studio (Cloud Run) doesn't inject VITE_ env vars at runtime.
 // Hardcode the Apps Script URL here, or set via import.meta.env for local dev.
-const SCRIPT_URL = (import.meta as any).env?.VITE_SHEETS_URL 
+// ── Configuration ────────────────────────────────────────────────
+const RAW_URL = (import.meta as any).env?.VITE_SHEETS_URL 
   || 'https://script.google.com/macros/s/AKfycbwOVVFP-PpVv3EbhPL__PWikpqAChYkvpJPMeOah1Ox3eRBNdEUx9F4AADDi19_qCP1/exec';
+
+// Robust URL normalization: strip quotes, spaces, and ensure it's a valid script URL
+const SCRIPT_URL = RAW_URL.replace(/^["']|["']$/g, '').trim();
 
 // ── Smart Data Extraction ─────────────────────────────────────────
 function getSheetData(allData: any, key: string): any[] {
@@ -51,53 +55,59 @@ const PLAN_KEYS       = ['planPurchased', 'plan', 'Plan', 'category'];
 const STATUS_KEYS     = ['projectStatus', 'status', 'Status', 'appointmentStatus', 'secondBilling', 'paymentStatus'];
 const AMOUNT_KEYS     = ['planPricing', 'amount', 'Amount', 'Amount (RM)', 'planPricingRM', 'pricing'];
 
-// ── Single call to fetch ALL tabs at once (V3 — fast) ─────────────
+// ── Parallel fetch for individual tabs (Fallback for scripts without tab=all) ───
 async function fetchAll(): Promise<Record<string, any[]>> {
-  if (!SCRIPT_URL) {
-    console.warn('[ChatsHero] No SCRIPT_URL configured');
+  if (!SCRIPT_URL || !SCRIPT_URL.startsWith('http')) {
+    console.warn('[ChatsHero] No valid SCRIPT_URL configured');
     return {};
   }
+  
+  const TABS_TO_FETCH = [
+    'new_customer', 
+    'appointment_lists', 
+    'calling_callback', 
+    'calling_followup', 
+    'customers', 
+    'deposit'
+  ];
+
   try {
-    console.log('[ChatsHero] Fetching all data from:', SCRIPT_URL);
-    const res = await fetch(`${SCRIPT_URL}?tab=all`, {
-      method: 'GET',
-      redirect: 'follow', // Apps Script redirects — must follow
+    console.log('[ChatsHero] Fetching tabs individually:', TABS_TO_FETCH);
+    const results = await Promise.all(
+      TABS_TO_FETCH.map(async (tab) => {
+        const data = await fetchTab(tab);
+        return { tab, data };
+      })
+    );
+
+    const allData: Record<string, any[]> = {};
+    results.forEach(({ tab, data }) => {
+      allData[tab] = data;
     });
-    console.log('[ChatsHero] Response status:', res.status, res.statusText);
-    const text = await res.text();
-    console.log('[ChatsHero] Response length:', text.length, 'chars');
-    try {
-      const json = JSON.parse(text);
-      if (json.ok && json.data) {
-        console.log('[ChatsHero] ✅ Data loaded! Tabs:', Object.keys(json.data));
-        Object.entries(json.data).forEach(([tab, rows]: [string, any]) => {
-          console.log(`  ${tab}: ${rows.length} rows`);
-        });
-        return json.data;
-      }
-      console.error('[ChatsHero] ❌ Response not ok:', json);
-      return {};
-    } catch (parseErr) {
-      // Apps Script might return HTML error page
-      console.error('[ChatsHero] ❌ JSON parse failed. Response preview:', text.substring(0, 500));
-      return {};
-    }
+
+    console.log('[ChatsHero] ✅ All tabs loaded individually');
+    return allData;
   } catch (err) {
-    console.error('[ChatsHero] ❌ Fetch failed:', err);
+    console.error('[ChatsHero] ❌ Multi-tab fetch failed:', err);
     return {};
   }
 }
 
 // For single-tab fetches (used by DataEntry page)
 async function fetchTab(tab: string): Promise<any[]> {
-  if (!SCRIPT_URL) return [];
+  if (!SCRIPT_URL || !SCRIPT_URL.startsWith('http')) return [];
   try {
-    const res = await fetch(`${SCRIPT_URL}?tab=${tab}&t=${Date.now()}`, {
+    const fetchUrlMethod = SCRIPT_URL.includes('?') ? '&' : '?';
+    const res = await fetch(`${SCRIPT_URL}${fetchUrlMethod}tab=${tab}&t=${Date.now()}`, {
       method: 'GET',
       redirect: 'follow',
     });
-    const json = await res.json();
-    return json.ok ? json.rows || [] : [];
+    const text = await res.text();
+    if (!res.ok) return [];
+    try {
+      const json = JSON.parse(text);
+      return json.ok ? json.rows || [] : [];
+    } catch { return []; }
   } catch (err) {
     console.error('[ChatsHero] fetchTab error:', tab, err);
     return [];

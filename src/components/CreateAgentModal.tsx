@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Shield, Plus, Database, Sparkles } from 'lucide-react';
 import { Department, Agent, UserRole } from '../types';
-import { collection, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from './AuthProvider';
 import { DEPARTMENTS } from '../constants';
@@ -93,13 +93,19 @@ export default function CreateAgentModal({ isOpen, onClose, agentToEdit, existin
       };
 
       if (agentToEdit?.id) {
-        await updateDoc(doc(db, 'agents', agentToEdit.id), payload);
+        // Use setDoc with merge: true to handle mock agents that don't exist in Firestore yet
+        await setDoc(doc(db, 'agents', agentToEdit.id), {
+          ...payload,
+          // Maintain original owner info if it exists
+          ownerId: agentToEdit.ownerId || user.uid,
+          owner: agentToEdit.owner || profile?.name || user.displayName || 'ChatsHero Elite',
+          createdAt: agentToEdit.createdAt || serverTimestamp(),
+        }, { merge: true });
       } else {
         await addDoc(collection(db, 'agents'), {
           ...payload,
           owner: profile?.name || user.displayName || 'ChatsHero Elite',
           ownerId: user.uid,
-          userId: user.uid,
           tokensConsumed: 0,
           powerLevel: Math.floor(Math.random() * 40) + 60,
           popularity: 0,
@@ -116,7 +122,6 @@ export default function CreateAgentModal({ isOpen, onClose, agentToEdit, existin
         });
       }
 
-      playSuccessSound();
       onClose();
     } catch (error: any) {
       console.error('Error saving agent:', error);
@@ -267,11 +272,10 @@ export default function CreateAgentModal({ isOpen, onClose, agentToEdit, existin
                         <button
                           key={i}
                           type="button"
-                          onClick={() => !isUsed && setImageUrl(opt)}
-                          disabled={isUsed}
+                          onClick={() => setImageUrl(opt)}
                           className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all ${
                             imageUrl === opt ? 'border-primary ring-2 ring-primary/20 scale-95' : 'border-slate-200 dark:border-white/5 opacity-60 hover:opacity-100 hover:border-primary/50'
-                          } ${isUsed ? 'opacity-20 hover:opacity-20 cursor-not-allowed filter grayscale bg-slate-100 dark:bg-slate-800' : ''}`}
+                          } ${isUsed ? 'ring-2 ring-amber-500/30' : ''}`}
                         >
                           <img src={opt} alt={`Option ${i+1}`} className="w-full h-full object-contain p-2" referrerPolicy="no-referrer" />
                           {imageUrl === opt && (
@@ -280,9 +284,9 @@ export default function CreateAgentModal({ isOpen, onClose, agentToEdit, existin
                             </div>
                           )}
                           {isUsed && (
-                            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                              <span className="text-[10px] font-black uppercase text-slate-500 bg-white/80 dark:bg-black/50 px-2 py-1 rounded-full backdrop-blur-sm">Taken</span>
-                            </div>
+                             <div className="absolute top-1 right-1">
+                                <div className="w-3 h-3 rounded-full bg-amber-500 shadow-sm" title="Already used by another agent" />
+                             </div>
                           )}
                         </button>
                       );

@@ -1,17 +1,19 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DEPARTMENTS, MOCK_AGENTS } from '@/src/constants';
 import AgentCard from '@/src/components/AgentCard';
 import Hero from '@/src/components/Hero';
 import ChatModal from '@/src/components/ChatModal';
 import CreateAgentModal from '@/src/components/CreateAgentModal';
+import AgentInfoModal from '@/src/components/AgentInfoModal';
 import { cn } from '@/src/lib/utils';
 import { Search, SlidersHorizontal, Plus, Database, ArchiveRestore, Trash2 } from 'lucide-react';
 import { Agent } from '../types';
-import { collection, onSnapshot, query, orderBy, deleteDoc, updateDoc, doc, where, or } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, deleteDoc, updateDoc, doc, where, or, limit } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { useAuth } from '../components/AuthProvider';
 import { playWinningSound } from '../lib/sounds';
+import HolidayBar from '../components/HolidayBar';
 
 export default function AgentHub() {
   const { user, profile } = useAuth();
@@ -21,10 +23,63 @@ export default function AgentHub() {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [dbAgents, setDbAgents] = useState<Agent[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showInfoModal, setShowInfoModal] = useState(false);
+  const [infoAgent, setInfoAgent] = useState<Agent | null>(null);
   const [loading, setLoading] = useState(true);
   const [isTrashView, setIsTrashView] = useState(false);
 
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
+
+  // Sound and TTS announcement
+  const announceCreation = useCallback((userName: string) => {
+    try {
+      const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3');
+      audio.volume = 0.4;
+      audio.play().catch(() => {});
+      
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const msg = new SpeechSynthesisUtterance(`${userName} has successfully created AI agent!`);
+        msg.rate = 1.0;
+        msg.pitch = 1.1;
+        window.speechSynthesis.speak(msg);
+      }
+    } catch (e) {
+      console.warn('Notification error:', e);
+    }
+  }, []);
+
+  // Listen for global creation events
+  useEffect(() => {
+    const q = query(
+      collection(db, 'global_events'), 
+      where('type', '==', 'agent_created'),
+      orderBy('createdAt', 'desc'), 
+      limit(1)
+    );
+    
+    let isFirstLoad = true;
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      if (isFirstLoad) {
+        isFirstLoad = false;
+        return;
+      }
+      
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === 'added') {
+          const data = change.doc.data();
+          // Only announce if it's not from the current user
+          if (data.userId !== user?.uid) {
+            announceCreation(data.userName || 'A user');
+          }
+        }
+      });
+    }, (err) => {
+      handleFirestoreError(err, OperationType.GET, 'global_events');
+    });
+    
+    return () => unsubscribe();
+  }, [announceCreation]);
 
   useEffect(() => {
     if (!user) return;
@@ -149,7 +204,10 @@ export default function AgentHub() {
   };
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-6">
+      {/* Holiday Notification Bar */}
+      <HolidayBar />
+
       {/* Hero Spotlight */}
       <Hero />
 
@@ -257,10 +315,17 @@ export default function AgentHub() {
                   }
                   onRun={(agent) => {
                     playWinningSound();
+                    if (agent.id === 'master-archivist') {
+                      setInfoAgent(agent);
+                      setShowInfoModal(true);
+                      return;
+                    }
                     if (agent.externalLink) {
                       window.open(agent.externalLink, '_blank', 'noopener,noreferrer');
                     } else {
-                      console.log('No external link associated with this agent.');
+                      // fallback to info if no link
+                      setInfoAgent(agent);
+                      setShowInfoModal(true);
                     }
                   }}
                   onEdit={(agent) => {
@@ -300,6 +365,16 @@ export default function AgentHub() {
         onClose={() => {
           setShowCreateModal(false);
           setEditingAgent(null);
+        }}
+      />
+
+      <AgentInfoModal 
+        isOpen={showInfoModal}
+        agent={infoAgent}
+        allAgents={allAgents}
+        onClose={() => {
+          setShowInfoModal(false);
+          setInfoAgent(null);
         }}
       />
 

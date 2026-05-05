@@ -18,8 +18,10 @@ import { cn } from '@/src/lib/utils';
 import { useAuth } from '../components/AuthProvider';
 
 // ── Config ────────────────────────────────────────────────────────
-const SCRIPT_URL = import.meta.env.VITE_SHEETS_URL 
+const RAW_URL = import.meta.env.VITE_SHEETS_URL 
   || 'https://script.google.com/macros/s/AKfycbwOVVFP-PpVv3EbhPL__PWikpqAChYkvpJPMeOah1Ox3eRBNdEUx9F4AADDi19_qCP1/exec';
+
+const SCRIPT_URL = RAW_URL.replace(/^["']|["']$/g, '').trim();
 
 // ── Dropdown options ──────────────────────────────────────────────
 const INDUSTRIES = [
@@ -164,21 +166,52 @@ const SHEETS: Record<SheetId, SheetDef> = {
 
 const SHEET_IDS = Object.keys(SHEETS) as SheetId[];
 
+// ── Tab name mapping (frontend SheetId → Apps Script tab name) ────
+const TAB_MAP: Record<SheetId, string> = {
+  contacts:     'new_customer',
+  appointments: 'appointment_lists',
+  calling:      'calling_callback',
+  checklist:    'app_checklist',
+  blasting:     'blasting',
+  cancelled:    'cancelled',
+  deposits:     'deposit',
+  customers:    'customers',
+};
+
 // ── API helpers ───────────────────────────────────────────────────
 async function apiPost(tab: string, row: any, action = 'append') {
-  if (!SCRIPT_URL) throw new Error('No VITE_SHEETS_URL configured');
+  if (!SCRIPT_URL || !SCRIPT_URL.startsWith('http')) throw new Error('No valid VITE_SHEETS_URL configured');
+  const backendTab = TAB_MAP[tab as SheetId] || tab;
   const res = await fetch(SCRIPT_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify({ tab, row, action }),
+    body: JSON.stringify({ tab: backendTab, row, action }),
+    redirect: 'follow',
   });
-  return res.json();
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    if (text.includes('Page Not Found')) throw new Error('Google Apps Script URL is invalid (404)');
+    throw new Error('Invalid response from server');
+  }
 }
 
 async function apiGet(tab: string) {
-  if (!SCRIPT_URL) throw new Error('No VITE_SHEETS_URL configured');
-  const res = await fetch(`${SCRIPT_URL}?tab=${tab}&t=${Date.now()}`);
-  return res.json();
+  if (!SCRIPT_URL || !SCRIPT_URL.startsWith('http')) throw new Error('No valid VITE_SHEETS_URL configured');
+  const backendTab = TAB_MAP[tab as SheetId] || tab;
+  const fetchUrlMethod = SCRIPT_URL.includes('?') ? '&' : '?';
+  const res = await fetch(`${SCRIPT_URL}${fetchUrlMethod}tab=${backendTab}&t=${Date.now()}`, {
+    method: 'GET',
+    redirect: 'follow',
+  });
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    if (text.includes('Page Not Found')) throw new Error('Google Apps Script URL is invalid (404)');
+    throw new Error('Invalid response from server');
+  }
 }
 
 // ── Status badge ──────────────────────────────────────────────────

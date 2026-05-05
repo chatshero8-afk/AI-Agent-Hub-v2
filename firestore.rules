@@ -8,6 +8,10 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    match /test/{docId} {
+      allow get: if true;
+    }
+
     // --- Helpers ---
     
     function isSignedIn() {

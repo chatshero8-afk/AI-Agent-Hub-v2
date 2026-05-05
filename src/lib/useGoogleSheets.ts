@@ -9,7 +9,10 @@
 
 import { useState, useEffect, useCallback } from 'react';
 
-const SCRIPT_URL = import.meta.env.VITE_SHEETS_URL || '';
+const RAW_URL = (import.meta as any).env?.VITE_SHEETS_URL 
+  || 'https://script.google.com/macros/s/AKfycbwOVVFP-PpVv3EbhPL__PWikpqAChYkvpJPMeOah1Ox3eRBNdEUx9F4AADDi19_qCP1/exec';
+
+const SCRIPT_URL = RAW_URL.replace(/^["']|["']$/g, '').trim();
 
 // ── Types ─────────────────────────────────────────────────────────
 export interface ContactRow {
@@ -131,13 +134,22 @@ const PLAN_VALUES: Record<string, number> = {
 
 // ── Fetch a single tab ────────────────────────────────────────────
 async function fetchTab(tab: string): Promise<any[]> {
-  if (!SCRIPT_URL) return [];
+  if (!SCRIPT_URL || !SCRIPT_URL.startsWith('http')) return [];
   try {
     const separator = SCRIPT_URL.includes('?') ? '&' : '?';
-    const res = await fetch(`${SCRIPT_URL}${separator}tab=${tab}&t=${Date.now()}`);
-    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-    const json = await res.json();
-    return json.ok ? json.rows || [] : [];
+    const res = await fetch(`${SCRIPT_URL}${separator}tab=${tab}&t=${Date.now()}`, {
+      method: 'GET',
+      redirect: 'follow'
+    });
+    const text = await res.text();
+    if (!res.ok) {
+      if (text.includes('Page Not Found')) console.error(`[ChatsHero] 404 for tab ${tab}: URL or Deployment invalid.`);
+      return [];
+    }
+    try {
+      const json = JSON.parse(text);
+      return json.ok ? json.rows || [] : [];
+    } catch { return []; }
   } catch (e) {
     console.warn(`Failed to fetch tab ${tab}:`, e);
     return [];

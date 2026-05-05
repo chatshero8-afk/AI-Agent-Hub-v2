@@ -482,7 +482,8 @@ export default function Profile() {
   if (targets.length > 0) scoreDivisor++;
   if (automationGoal) scoreDivisor++;
 
-  const { stats, loading: sheetsLoading } = useSheetsData(profile?.name || 'Jacky');
+  const isAdmin = profile?.role === 'admin';
+  const { stats, loading: sheetsLoading } = useSheetsData(isAdmin ? undefined : (profile?.name || undefined));
 
   // Score mappings from dynamic stats
   const sheetTotalScore = stats ? (

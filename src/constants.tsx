@@ -7,7 +7,25 @@ export const DEPARTMENTS: { id: string; label: string; icon: string }[] = [
   { id: 'FinancialAdmin', label: 'Financial & Admin', icon: '🛡️' },
 ];
 
-export const MOCK_AGENTS: Agent[] = [];
+export const MOCK_AGENTS: Agent[] = [
+  {
+    id: 'master-archivist',
+    name: 'The Shop',
+    role: 'Master Agent Directory & System Knowledge Base',
+    department: 'IT',
+    description: 'system knowledge',
+    powerLevel: 100,
+    popularity: 99,
+    tokensConsumed: 1000000,
+    owner: 'CH_SYSTEM',
+    ownerId: 'system',
+    visibility: 'public',
+    isDeleted: false,
+    imageUrl: '/images/22.svg',
+    avatar: '📚',
+    createdAt: { toDate: () => new Date() } as any
+  }
+];
 
 export const TOP_BUILDERS: TopBuilder[] = [
   { name: 'Alex River', avatar: '👨‍💻', score: 24, rank: 1 },

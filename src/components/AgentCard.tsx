@@ -49,6 +49,8 @@ export default function AgentCard({ agent, index, level, onRun, onEdit, onDelete
 
   const selectedImage = availableImages[index % availableImages.length];
 
+  const isMaster = agent.id === 'master-archivist';
+
   return (
     <motion.div
       layout
@@ -56,21 +58,32 @@ export default function AgentCard({ agent, index, level, onRun, onEdit, onDelete
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{ 
-        delay: Math.min(index * 0.02, 0.2), // Cap delay at 0.2s for snappier experience
+        delay: Math.min(index * 0.02, 0.2), 
         duration: 0.3, 
         ease: "easeOut"
       }}
-      className="group relative flex flex-col overflow-hidden transition-all duration-500 hover:-translate-y-2"
+      className={cn(
+        "group relative flex flex-col overflow-hidden transition-all duration-500 hover:-translate-y-2",
+        isMaster && "scale-[1.02] z-10"
+      )}
     >
       {/* Hero Portrait Area */}
-      <div className="relative w-full aspect-[4/5] overflow-hidden rounded-3xl border border-slate-200/50 dark:border-white/10 group-hover:border-primary/50 transition-all duration-500 bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl shadow-[0_0_15px_rgba(139,92,246,0.1)] group-hover:shadow-[0_0_40px_rgba(139,92,246,0.6)]">
+      <div className={cn(
+        "relative w-full aspect-[4/5] overflow-hidden rounded-3xl border transition-all duration-500 backdrop-blur-xl",
+        isMaster 
+          ? "border-amber-400/50 bg-slate-900/80 shadow-[0_0_30px_rgba(251,191,36,0.2)] group-hover:shadow-[0_0_60px_rgba(251,191,36,0.6)] group-hover:border-amber-400" 
+          : "border-slate-200/50 dark:border-white/10 bg-white/40 dark:bg-slate-900/40 shadow-[0_0_15px_rgba(139,92,246,0.1)] group-hover:shadow-[0_0_40px_rgba(139,92,246,0.6)] group-hover:border-primary/50"
+      )}>
         
         {/* Card Main Image */}
         <div className="absolute inset-0 overflow-hidden z-0 border-none flex items-center justify-center">
           <img 
             src={agent.imageUrl || selectedImage} 
             alt="" 
-            className="w-[85%] h-[85%] object-contain transition-transform duration-700 group-hover:scale-[1.05]"
+            className={cn(
+              "w-[85%] h-[85%] object-contain transition-transform duration-700 group-hover:scale-[1.05]",
+              isMaster && "drop-shadow-[0_0_15px_rgba(251,191,36,0.4)]"
+            )}
             referrerPolicy="no-referrer"
             onError={(e) => {
               const target = e.target as HTMLImageElement;
@@ -92,7 +105,7 @@ export default function AgentCard({ agent, index, level, onRun, onEdit, onDelete
               }}
               className={cn(
                 "absolute w-64 h-64 rounded-full bg-gradient-to-r blur-3xl opacity-50 group-hover:opacity-80 transition-opacity",
-                getDeptColor(agent.department)
+                isMaster ? "from-amber-500/40 to-transparent" : getDeptColor(agent.department)
               )}
             />
           </div>
@@ -106,23 +119,33 @@ export default function AgentCard({ agent, index, level, onRun, onEdit, onDelete
           <motion.div 
             initial={{ x: -10, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
-            className="px-2 py-0.5 rounded bg-primary text-[10px] font-black text-white uppercase tracking-widest mb-2 inline-block shadow-[0_0_8px_rgba(139,92,246,0.5)]"
+            className={cn(
+              "px-2 py-0.5 rounded text-[10px] font-black text-white uppercase tracking-widest mb-2 inline-block",
+              isMaster ? "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]" : "bg-primary shadow-[0_0_8px_rgba(139,92,246,0.5)]"
+            )}
           >
-            {agent.department === 'SalesMarketing' ? 'Marketing' : 
-             agent.department === 'FinancialAdmin' ? 'Admin' : agent.department}
+            {isMaster ? 'SYSTEM CORE' : 
+             (agent.department === 'SalesMarketing' ? 'Marketing' : 
+              agent.department === 'FinancialAdmin' ? 'Admin' : agent.department)}
           </motion.div>
-          <h3 className="text-3xl font-black text-white tracking-tighter leading-none group-hover:text-primary transition-colors drop-shadow-[0_2px_2px_rgba(0,0,0,0.4)]">
+          <h3 className={cn(
+            "text-3xl font-black tracking-tighter leading-none transition-colors drop-shadow-[0_2px_2px_rgba(0,0,0,0.4)]",
+            isMaster ? "text-amber-400 group-hover:text-amber-300" : "text-white group-hover:text-primary"
+          )}>
             {agent.name}
           </h3>
           <p className="text-[12px] font-bold text-slate-300 uppercase tracking-[0.25em] mt-1 group-hover:text-white transition-colors">
-            {agent.role}
+            {agent.role.length > 40 ? agent.role.substring(0, 37) + '...' : agent.role}
           </p>
         </div>
 
         {/* Level Banner */}
         <div className="absolute top-6 left-0 z-30">
-          <div className="bg-primary/90 backdrop-blur-md border-r border-y border-white/10 px-4 py-1 rounded-r-lg text-[10px] font-black text-white italic shadow-lg shadow-primary/20">
-            LVL {level || Math.floor(agent.tokensConsumed / 100000) + 1}
+          <div className={cn(
+            "backdrop-blur-md border-r border-y border-white/10 px-4 py-1 rounded-r-lg text-[10px] font-black text-white italic shadow-lg",
+            isMaster ? "bg-amber-600/90 shadow-amber-500/20" : "bg-primary/90 shadow-primary/20"
+          )}>
+            {isMaster ? 'MAX LEVEL' : `LVL ${level || Math.floor(agent.tokensConsumed / 100000) + 1}`}
           </div>
         </div>
 
