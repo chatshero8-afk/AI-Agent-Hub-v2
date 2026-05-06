@@ -14,7 +14,7 @@
 import { RefreshCw, Wifi, WifiOff } from 'lucide-react';
 import { useSheetsData, type SheetsStats } from '../lib/useSheetsData';
 import { useAuth } from './AuthProvider';
-import { cn } from '@/lib/utils';
+import { cn } from '@/src/lib/utils';
 
 export default function ProfileSheetsStats() {
   const { profile } = useAuth();

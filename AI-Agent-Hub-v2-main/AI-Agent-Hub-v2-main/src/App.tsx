@@ -4,31 +4,21 @@ import Layout from './components/Layout';
 import AgentHub from './pages/AgentHub';
 import Analytics from './pages/Analytics';
 import Profile from './pages/Profile';
-import Sales from './pages/Sales';
 import Settings from './pages/Settings';
+import TemplatesAdmin from './pages/TemplatesAdmin';
 import Login from './pages/Login';
-import StaffWorkspace from './pages/StaffWorkspace';
+import DataEntry from './pages/DataEntry'; // ← NEW
 import { AuthProvider, useAuth } from './components/AuthProvider';
 import { playClickSound, playGlorySound, playTransitionSound } from './lib/sounds';
 import GlobalNotifier from './components/GlobalNotifier';
 
 // ── EXTENDED TAB TYPE ─────────────────────────────────────────────
-type TabType = 'hub' | 'analytics' | 'profile' | 'settings' | 'workspace' | 'sales';
+type TabType = 'hub' | 'analytics' | 'profile' | 'settings' | 'widgets' | 'data-entry';
 
 function AuthenticatedApp() {
   const { user, profile, loading } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('hub');
   const location = useLocation();
-
-  useEffect(() => {
-    const path = location.pathname;
-    if (path === '/hub') setActiveTab('hub');
-    if (path === '/analytics') setActiveTab('analytics');
-    if (path === '/sales') setActiveTab('sales');
-    if (path === '/profile') setActiveTab('profile');
-    if (path === '/settings') setActiveTab('settings');
-    if (path === '/workspace') setActiveTab('workspace');
-  }, [location.pathname]);
 
   useEffect(() => {
     const hasPlayedGlory = sessionStorage.getItem('hasPlayedGlorySound');
@@ -80,19 +70,17 @@ function AuthenticatedApp() {
     );
   }
 
-  const isRestricted = profile?.role === 'Intern IT' || profile?.role === 'Intern Graphic';
-
   return (
     <>
       <GlobalNotifier />
       <Layout activeTab={activeTab} onTabChange={setActiveTab}>
         <Routes>
           <Route path="/hub"        element={<AgentHub />} />
-          <Route path="/sales"      element={isRestricted ? <Navigate to="/hub" /> : <Sales />} />
-          <Route path="/profile"    element={isRestricted ? <Navigate to="/hub" /> : <Profile />} />
-          <Route path="/analytics"  element={isRestricted ? <Navigate to="/hub" /> : <Analytics />} />
-          <Route path="/workspace"  element={isRestricted ? <Navigate to="/hub" /> : <StaffWorkspace />} />
+          <Route path="/analytics"  element={<Analytics />} />
+          <Route path="/profile"    element={<Profile />} />
           <Route path="/settings"   element={<Settings />} />
+          <Route path="/widgets"    element={<TemplatesAdmin />} />
+          <Route path="/data-entry" element={<DataEntry />} /> {/* ← NEW */}
           <Route path="*"           element={<Navigate to="/hub" />} />
         </Routes>
       </Layout>

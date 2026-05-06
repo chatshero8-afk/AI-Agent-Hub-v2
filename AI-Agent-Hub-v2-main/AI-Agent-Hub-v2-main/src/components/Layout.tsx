@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Sun, Moon, LayoutGrid, BarChart3, Menu, X, LogOut, User, Shield, LayoutTemplate, ClipboardList } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/src/lib/utils';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from './AuthProvider';
 
+// ── ADDED 'data-entry' to the tab union ──────────────────────────
 interface LayoutProps {
   children: React.ReactNode;
-  activeTab: 'hub' | 'analytics' | 'profile' | 'settings' | 'workspace' | 'sales';
-  onTabChange: (tab: 'hub' | 'analytics' | 'profile' | 'settings' | 'workspace' | 'sales') => void;
+  activeTab: 'hub' | 'analytics' | 'profile' | 'settings' | 'widgets' | 'data-entry';
+  onTabChange: (tab: 'hub' | 'analytics' | 'profile' | 'settings' | 'widgets' | 'data-entry') => void;
 }
 
 export default function Layout({ children, activeTab, onTabChange }: LayoutProps) {
@@ -36,35 +37,31 @@ export default function Layout({ children, activeTab, onTabChange }: LayoutProps
     const path = location.pathname;
     if (path === '/hub') onTabChange('hub');
     if (path === '/analytics') onTabChange('analytics');
-    if (path === '/sales') onTabChange('sales');
     if (path === '/profile') onTabChange('profile');
     if (path === '/settings') onTabChange('settings');
-    if (path === '/workspace') onTabChange('workspace');
+    if (path === '/data-entry') onTabChange('data-entry'); // ← NEW
   }, [location.pathname, onTabChange]);
 
-  const isRestricted = profile?.role === 'Intern IT' || profile?.role === 'Intern Graphic';
-
+  // ── ADDED data-entry to navItems ─────────────────────────────
   const navItems: Array<{
-    id: 'hub' | 'analytics' | 'profile' | 'settings' | 'workspace' | 'sales';
+    id: 'hub' | 'analytics' | 'profile' | 'settings' | 'widgets' | 'data-entry';
     label: string;
     icon: any;
     path: string;
   }> = [
     { id: 'hub',        label: 'Agent Hub',  icon: LayoutGrid,    path: '/hub' },
+    { id: 'analytics',  label: 'Dashboard',  icon: BarChart3,     path: '/analytics' },
+    { id: 'profile',    label: 'Profile',    icon: User,          path: '/profile' },
+    { id: 'data-entry', label: 'Data Entry', icon: ClipboardList, path: '/data-entry' }, // ← NEW
   ];
 
-  if (!isRestricted) {
-    navItems.push({ id: 'analytics',  label: 'Dashboard',  icon: BarChart3,     path: '/analytics' });
-    navItems.push({ id: 'sales',      label: 'Sales',      icon: ClipboardList, path: '/sales' });
-    navItems.push({ id: 'profile',    label: 'Profile',    icon: User,          path: '/profile' });
-  }
-
   if (profile?.role === 'admin') {
+    navItems.push({ id: 'widgets',  label: 'Templates', icon: LayoutTemplate, path: '/widgets' });
     navItems.push({ id: 'settings', label: 'Settings',  icon: Shield,         path: '/settings' });
   }
 
   const handleNav = (
-    id: 'hub' | 'analytics' | 'profile' | 'settings' | 'workspace' | 'sales',
+    id: 'hub' | 'analytics' | 'profile' | 'settings' | 'widgets' | 'data-entry',
     path: string
   ) => {
     onTabChange(id);
@@ -75,15 +72,15 @@ export default function Layout({ children, activeTab, onTabChange }: LayoutProps
     <div className="min-h-screen bg-grid flex flex-col">
       {/* Navbar */}
       <nav className="sticky top-0 z-50 border-b border-slate-200 bg-white/50 backdrop-blur-md dark:border-white/5 dark:bg-slate-900/50">
-        <div className={cn("mx-auto", activeTab === 'sales' ? "max-w-full px-12" : "max-w-7xl px-4 sm:px-6 lg:px-8")}>
+        <div className={cn("mx-auto", activeTab === 'profile' || activeTab === 'data-entry' ? "max-w-full px-12" : "max-w-7xl px-4 sm:px-6 lg:px-8")}>
           <div className="flex h-16 items-center justify-between">
-            <div className="flex items-center gap-3 group px-4 py-2 bg-slate-900 rounded-2xl shadow-xl border border-white/5 cursor-pointer" onClick={() => navigate('/hub')}>
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-lg overflow-hidden transition-all duration-300 transform group-hover:rotate-12">
-                <img src="/icons/chatshero.webp" alt="ChatsHero" className="h-full w-full object-cover" />
+            <div className="flex items-center gap-3 group">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-white shadow-[0_0_15px_rgba(139,92,246,0.5)] group-hover:shadow-[0_0_25px_rgba(139,92,246,0.8)] overflow-hidden transition-all duration-300">
+                <img src="/icons/chatshero.webp" alt="Chatshero" className="h-full w-full object-cover" />
               </div>
-              <span className="text-xl font-black tracking-tighter uppercase italic drop-shadow-[0_0_10px_rgba(255,255,255,0.4)] transition-all">
-                <span className="text-white">Chats</span>
-                <span className="text-primary ml-1.5 focus:text-white">Hero</span>
+              <span className="text-lg font-black tracking-tight uppercase italic drop-shadow-[0_0_10px_rgba(255,255,255,0.4)] group-hover:drop-shadow-[0_0_15px_rgba(255,255,255,0.8)] transition-all">
+                <span className="shimmer-text text-slate-800 dark:text-white">Chats</span>
+                <span className="text-primary shimmer-text drop-shadow-[0_0_8px_rgba(139,92,246,0.8)]">Hero</span>
               </span>
             </div>
 
@@ -103,6 +100,10 @@ export default function Layout({ children, activeTab, onTabChange }: LayoutProps
                   >
                     <item.icon size={16} />
                     {item.label}
+                    {/* Pulse dot for Data Entry to draw attention */}
+                    {item.id === 'data-entry' && activeTab !== 'data-entry' && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                    )}
                   </button>
                 ))}
 
@@ -118,21 +119,16 @@ export default function Layout({ children, activeTab, onTabChange }: LayoutProps
                 <div className="h-4 w-px bg-slate-200 dark:bg-white/10 mx-2" />
 
                 <div className="flex items-center gap-3 pl-2">
-                  <div 
-                    onClick={() => handleNav('profile', '/profile')}
-                    className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
-                  >
-                    <div className="flex flex-col items-end">
-                      <span className="text-[10px] font-black text-slate-900 dark:text-white uppercase leading-none">{profile?.name}</span>
-                      <span className="text-[8px] font-bold text-primary uppercase tracking-widest">{profile?.role}</span>
-                    </div>
-                    <div className="h-8 w-8 rounded-full overflow-hidden bg-slate-200 border border-slate-300 dark:border-white/10 shrink-0">
-                      <img
-                        src={profile?.avatar || "/icons/chatshero.webp"}
-                        alt="Avatar"
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
+                  <div className="flex flex-col items-end">
+                    <span className="text-[10px] font-black text-slate-900 dark:text-white uppercase leading-none">{profile?.name}</span>
+                    <span className="text-[8px] font-bold text-primary uppercase tracking-widest">{profile?.role}</span>
+                  </div>
+                  <div className="h-8 w-8 rounded-full overflow-hidden bg-slate-200 border border-slate-300 dark:border-white/10 shrink-0">
+                    <img
+                      src={profile?.avatar || "/icons/chatshero.webp"}
+                      alt="Avatar"
+                      className="w-full h-full object-cover"
+                    />
                   </div>
                   <button
                     onClick={() => logout()}
@@ -203,20 +199,15 @@ export default function Layout({ children, activeTab, onTabChange }: LayoutProps
         </AnimatePresence>
       </nav>
 
-      <main className={cn(
-        "flex-1",
-        (activeTab === 'sales' || activeTab === 'profile' || activeTab === 'workspace') ? "w-full relative" : "mx-auto py-8 max-w-7xl px-4 sm:px-6 lg:px-8 w-full"
-      )}>
+      <main className={cn("mx-auto py-8", activeTab === 'profile' || activeTab === 'data-entry' ? "max-w-full px-12" : "max-w-7xl px-4 sm:px-6 lg:px-8")}>
         {children}
       </main>
 
-      {(activeTab !== 'sales' && activeTab !== 'profile' && activeTab !== 'workspace') && (
-        <footer className="mt-auto py-8 border-t border-zinc-200 dark:border-zinc-800">
-          <div className="mx-auto text-center text-zinc-500 text-xs font-medium tracking-widest uppercase max-w-7xl px-4">
-            © {new Date().getFullYear()} ChatsHero AI Hub • Built with Power
-          </div>
-        </footer>
-      )}
+      <footer className="mt-auto py-8 border-t border-zinc-200 dark:border-zinc-800">
+        <div className={cn("mx-auto text-center text-zinc-500 text-xs font-medium tracking-widest uppercase", activeTab === 'profile' || activeTab === 'data-entry' ? "max-w-full px-12" : "max-w-7xl px-4")}>
+          © {new Date().getFullYear()} Chatshero AI Hub • Built with Power
+        </div>
+      </footer>
     </div>
   );
 }

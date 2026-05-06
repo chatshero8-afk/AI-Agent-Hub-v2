@@ -4,12 +4,12 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   AreaChart, Area, Cell
 } from 'recharts';
-import { ANALYTICS_HISTORY, TOP_BUILDERS, MOCK_AGENTS } from '@/constants';
+import { ANALYTICS_HISTORY, TOP_BUILDERS, MOCK_AGENTS } from '@/src/constants';
 import { 
   Trophy, TrendingUp, Cpu, Activity, Medal, Star, 
   Smartphone, Headphones, Gift 
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/src/lib/utils';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { Agent } from '../types';
