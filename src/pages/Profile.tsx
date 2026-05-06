@@ -1,24 +1,14 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { 
-  Shield,
-  Crown,
-  CheckCircle2,
-  Zap,
-  Award,
-  TrendingUp
+  Crown
 } from 'lucide-react';
 import { useAuth } from '../components/AuthProvider';
 import { cn } from '../lib/utils';
+import TodoSection from '../components/profile/TodoSection';
 
 export default function Profile() {
   const { profile } = useAuth();
-
-  const vanguardHistory = [
-    { id: 1, title: 'RTST', sub: 'CHATSHERO', date: 'FORGED: MAY 2026', icon: Zap, color: 'bg-green-500/20 text-green-400' },
-    { id: 2, title: 'AI SALES', sub: 'CHATSHERO', date: 'FORGED: MAY 2026', icon: Award, color: 'bg-purple-500/20 text-purple-400' },
-    { id: 3, title: 'DOUBLE KILL', sub: 'CHATSHERO', date: 'FORGED: MAY 2026', icon: TrendingUp, color: 'bg-blue-500/20 text-blue-400' },
-  ];
   
   return (
     <div className="min-h-screen bg-[#070b14] text-white pb-20 pt-6 selection:bg-indigo-500/30">
@@ -35,9 +25,10 @@ export default function Profile() {
           <div className="absolute -bottom-40 -left-20 w-96 h-96 bg-purple-600/10 rounded-full blur-[120px] pointer-events-none" />
           <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-t from-transparent via-transparent to-indigo-500/5 pointer-events-none" />
           
-          <div className="relative p-10 lg:p-14 flex flex-col lg:flex-row items-center gap-12">
+          <div className="relative p-10 lg:p-14 flex flex-col lg:flex-row items-center justify-center gap-16 lg:gap-32">
+            
             {/* Left: Brand Identity */}
-            <div className="flex-1 space-y-10 text-center lg:text-left z-10">
+            <div className="flex-1 space-y-8 text-center lg:text-left z-10 max-w-xl">
               <div className="flex flex-wrap items-center justify-center lg:justify-start gap-4">
                 <span className="px-5 py-2 bg-indigo-500/15 border border-indigo-400/30 rounded-xl text-[10px] font-black uppercase tracking-[0.3em] text-indigo-300 shadow-[0_0_20px_rgba(99,102,241,0.2)]">
                   NEW LEGEND FORGED
@@ -48,86 +39,113 @@ export default function Profile() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <h1 className="text-[7rem] lg:text-[9rem] font-black italic tracking-tighter uppercase leading-[0.75] drop-shadow-[0_20px_40px_rgba(0,0,0,0.6)]">
-                  AI <span className="text-slate-300">WRITE</span>
+              <div className="space-y-4 lg:space-y-2">
+                <h1 className="text-[3.5rem] leading-[0.9] sm:text-[4.5rem] lg:text-[6rem] font-black italic tracking-tighter uppercase lg:leading-[0.85] drop-shadow-[0_20px_40px_rgba(0,0,0,0.6)] ml-1">
+                  HELLO <br className="hidden lg:block"/><span className="text-slate-300 lg:pl-2">{profile?.name || 'CHATSHERO'}</span>
                 </h1>
               </div>
 
-              <div className="flex flex-wrap items-center justify-center lg:justify-start gap-14 pt-8">
-                <div className="flex items-center gap-5">
-                  <div className="w-14 h-14 rounded-2xl bg-white/10 p-2.5 border border-white/10 shadow-2xl backdrop-blur-xl">
-                    <img src={profile?.avatar || "/images/8.svg"} alt="Logo" className="w-full h-full object-contain" />
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-2">ARCHITECT</p>
-                    <p className="text-2xl font-black text-white uppercase tracking-tighter">{profile?.name || 'CHATSHERO'}</p>
-                  </div>
-                </div>
-
-                <div>
-                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-2">FORGE DATE</p>
-                  <p className="text-2xl font-black text-white uppercase tracking-tighter">06 MAY 2026</p>
-                </div>
-
-                <div>
-                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-2">ACTIVE STATUS</p>
-                  <div className="flex items-center gap-3">
-                    <div className="relative">
-                      <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.8)] animate-pulse" />
-                      <div className="absolute inset-0 w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping opacity-40" />
+              <div className="flex flex-col gap-8 pt-4">
+                <div className="flex flex-col lg:flex-row items-center justify-center lg:justify-start gap-8 lg:gap-10">
+                  
+                  {/* Avatar with Circular Progress */}
+                  <div className="relative w-36 h-36 flex items-center justify-center shrink-0">
+                    {/* SVG Progress Circle */}
+                    <svg className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none" viewBox="0 0 100 100">
+                      {/* Background Track */}
+                      <circle cx="50" cy="50" r="44" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="6" />
+                      {/* Progress Line */}
+                      <circle 
+                        cx="50" cy="50" r="44" 
+                        fill="none" 
+                        stroke="#d8b4fe" // match reference light purple
+                        strokeWidth="6" 
+                        strokeLinecap="round"
+                        strokeDasharray={2 * Math.PI * 44} 
+                        strokeDashoffset={(2 * Math.PI * 44) - (80 / 100) * (2 * Math.PI * 44)} 
+                        style={{ transition: 'stroke-dashoffset 1.5s ease-in-out' }}
+                      />
+                    </svg>
+                    
+                    {/* Badge */}
+                    <div className="absolute top-1 right-0 translate-x-3 -translate-y-1 z-10">
+                      <div className="bg-[#2a1a08] text-amber-500 border border-amber-600/40 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-lg">
+                        Active Streak
+                      </div>
                     </div>
-                    <p className="text-2xl font-black text-emerald-400 uppercase tracking-tighter">UNIT OPERATIONAL</p>
+                    
+                    {/* Inner Avatar Image */}
+                    <div className="w-[96px] h-[96px] rounded-full bg-[#121826] overflow-hidden flex items-center justify-center z-0 p-1 relative group cursor-pointer">
+                      <img src={profile?.avatar || "/images/8.svg"} alt="Logo" className="w-full h-full object-cover rounded-full transition-all group-hover:opacity-40" />
+                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <span className="text-xl font-bold text-white drop-shadow-md">80%</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Attendance Info */}
+                  <div className="text-center lg:text-left py-2">
+                    <p className="text-xl lg:text-2xl font-bold text-[#f8fafc] leading-tight">Full Attendance <br className="hidden lg:block"/>Bonus</p>
+                    <p className="text-4xl lg:text-5xl font-black text-[#d8b4fe] mt-2 mb-2 tracking-tight">RM30.00</p>
+                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/5 border border-white/10 rounded-full">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                      <p className="text-xs font-semibold text-slate-300">4 more days to unlock</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-center lg:justify-start gap-12 mt-4 pt-6 border-t border-white/10">
+                  <div className="text-left">
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-2">FORGE DATE</p>
+                    <p className="text-xl font-black text-white uppercase tracking-tighter">06 MAY 2026</p>
+                  </div>
+
+                  <div className="text-left">
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-2">BIRTH DATE</p>
+                    <p className="text-xl font-black text-white uppercase tracking-tighter">15 AUG 1998</p>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Middle: Character Visual */}
-            <div className="relative w-72 h-72 lg:w-[420px] lg:h-[420px] shrink-0 group">
+            {/* Right: Character Visual with Spotlight */}
+            <div className="relative w-72 h-72 lg:w-[460px] lg:h-[460px] shrink-0 group perspective-1000">
+              {/* Spotlight base light */}
               <div className="absolute inset-0 bg-indigo-500/30 rounded-full blur-[100px] scale-75 group-hover:scale-90 transition-all duration-1000 opacity-60" />
+              
+              {/* Animated Spotlight Cone */}
+              <motion.div 
+                className="absolute -top-40 left-1/2 -translate-x-1/2 w-40 h-[600px] bg-gradient-to-b from-white/30 via-indigo-400/10 to-transparent blur-3xl origin-top rounded-full pointer-events-none z-20"
+                animate={{ rotate: [-8, 8, -8], opacity: [0.3, 0.6, 0.3] }}
+                transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
+              />
+              <motion.div 
+                className="absolute -top-20 left-1/2 -translate-x-1/2 w-64 h-[500px] bg-gradient-to-b from-purple-400/20 via-blue-500/10 to-transparent blur-2xl origin-top rounded-full pointer-events-none z-20"
+                animate={{ rotate: [5, -5, 5], opacity: [0.2, 0.5, 0.2] }}
+                transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+              />
+
+              {/* Pedestal/Floor glow for spotlight */}
+              <motion.div 
+                className="absolute -bottom-10 left-1/2 -translate-x-1/2 w-64 h-20 bg-indigo-500/40 rounded-[100%] blur-2xl z-0"
+                animate={{ scale: [1, 1.2, 1], opacity: [0.4, 0.8, 0.4] }}
+                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+              />
+
               <motion.img 
                 animate={{ y: [0, -20, 0] }}
                 transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
                 src="/images/2.svg" 
-                className="w-full h-full object-contain relative z-10 drop-shadow-[0_35px_60px_rgba(0,0,0,0.6)]"
+                className="w-full h-full object-contain relative z-10 drop-shadow-[0_35px_60px_rgba(0,0,0,0.8)]"
                 alt="Character"
               />
             </div>
 
-            {/* Right: History Feed */}
-            <div className="w-full lg:w-80 shrink-0 z-10">
-              <div className="bg-[#1a212e]/60 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] p-7 space-y-7 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.6)]">
-                <div className="flex items-center gap-4 pb-4 border-b border-white/5">
-                  <div className="p-2 bg-indigo-500/20 rounded-lg">
-                    <Shield size={18} className="text-indigo-400" />
-                  </div>
-                  <span className="text-[11px] font-black uppercase tracking-[0.35em] text-slate-300">VANGUARD HISTORY</span>
-                </div>
-                
-                <div className="space-y-6">
-                  {vanguardHistory.map((item) => (
-                    <div key={item.id} className="flex items-center gap-5 group cursor-default">
-                      <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center shadow-2xl transition-all duration-500 group-hover:scale-110", item.color)}>
-                        <item.icon size={24} />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <p className="text-base font-black text-white italic tracking-tighter uppercase">{item.title}</p>
-                          <CheckCircle2 size={12} className="text-emerald-400/40" />
-                        </div>
-                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-0.5">
-                          <span className="text-indigo-400">@</span> {item.sub}
-                        </p>
-                        <p className="text-[9px] font-bold text-slate-600 uppercase tracking-[0.15em] mt-1">{item.date}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
           </div>
         </motion.div>
+
+        {/* 2. TASK MANAGEMENT SECTION */}
+        <TodoSection />
       </div>
     </div>
   );
