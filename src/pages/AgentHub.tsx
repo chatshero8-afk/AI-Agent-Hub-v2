@@ -129,6 +129,13 @@ export default function AgentHub() {
   }, []);
 
   const allAgents = [...dbAgents, ...MOCK_AGENTS.filter(ma => !dbAgents.some(da => da.name === ma.name))];
+  
+  // Ensure "The Shop" is always first
+  allAgents.sort((a, b) => {
+    if (a.id === 'master-archivist') return -1;
+    if (b.id === 'master-archivist') return 1;
+    return 0;
+  });
 
   const canViewAgent = (agent: Agent) => {
     if (!agent.ownerId) return true;

@@ -65,6 +65,11 @@ export interface UserProfile {
   calendarEvents?: CalendarEvent[];
   activityLogs?: ActivityLog[];
   automationGoal?: AutomationGoal;
+  githubRepo?: {
+    owner: string;
+    name: string;
+    path: string;
+  };
   createdAt?: any;
 }
 

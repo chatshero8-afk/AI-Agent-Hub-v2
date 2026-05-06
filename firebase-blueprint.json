@@ -67,6 +67,16 @@
       },
       "required": ["name", "role", "department", "avatar", "ownerId", "createdAt"]
     },
+    "AllowedEmail": {
+      "title": "Allowed Email",
+      "description": "Whitelisted email address for dashboard access",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email" },
+        "addedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "addedAt"]
+    },
     "Template": {
       "title": "Department Template",
       "description": "A full-screen dashboard template assigned to a department",
@@ -100,6 +110,10 @@
     "/templates/{templateId}": {
       "schema": "Template",
       "description": "Department-specific dashboard templates"
+    },
+    "/allowedEmails/{emailId}": {
+      "schema": "AllowedEmail",
+      "description": "Whitelist of allowed email addresses"
     }
   }
 }

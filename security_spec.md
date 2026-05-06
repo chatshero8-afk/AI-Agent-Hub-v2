@@ -1,28 +1,27 @@
-# Firebase Security Specification - ChatsHero Agent Hub
+# Security Specification for ChatsHero
 
 ## Data Invariants
-1. A **User** profile must match the `request.auth.uid`.
-2. Only an **Admin** can create or modify **Widgets**.
-3. **Agents** belong to an `ownerId`. Only the owner or an Admin can update or delete them.
-4. **GlobalEvents** are read-only for most users, but created when certain actions occur (creation of agent, etc).
-5. All timestamps (`createdAt`, `updatedAt`) must be server-validated.
+- Only whitelisted users (in `allowedEmails` or with `isAdmin: true` in `users`) can access sensitive dashboard data.
+- User profiles can only be updated by the user themself (except for RBAC fields).
+- `AllowedEmail` entries can only be managed by admins.
+- `createdAt` and `ownerId` are immutable.
 
-## The Dirty Dozen Payloads (Test Cases)
-1. **Identity Spoofing**: Attempt to create a user profile with a different `uid` than the authenticated user.
-2. **Privilege Escalation**: A non-admin user attempting to set `isAdmin: true` on their profile.
-3. **Ghost Field Injection**: Adding undocumented fields like `isVerified: true` to an agent.
-4. **Orphaned Write**: Creating an agent without a valid `ownerId` matching the user.
-5. **Unauthorized Widget Creation**: A `staff` role attempting to create a KPI widget.
-6. **Malicious ID Poisoning**: Using a 1MB string as a document ID for an agent.
-7. **Resource Exhaustion**: Sending a 500KB string for the agent `description`.
-8. **State Shortcutting**: Updating `tokensConsumed` on an agent without being the owner.
-9. **Email Spoofing**: Logged in as one email, but setting another in the user profile.
-10. **Timestamp Manipulation**: Providing a client-side `createdAt` date instead of `request.time`.
-11. **PII Leakage**: Attempting to read another user's profile if it contains private info (though this app seems public-heavy).
-12. **Recursive Cost Attack**: Forcing complex lookups (query scraping) without proper filters.
+## The "Dirty Dozen" Payloads (Denial Tests)
+1. **Identity Spoofing**: Create an agent with `ownerId` of another user.
+2. **Privilege Escalation**: Update own user profile to set `isAdmin: true`.
+3. **Ghost Field Injection**: Add `isVerified: true` to an agent document.
+4. **ID Poisoning**: Create a document with a 2KB string as ID.
+5. **Unauthorized Whitelisting**: A non-admin adding an email to `allowedEmails`.
+6. **Bypassing Whitelist**: Accessing widgets as a logged-in user whose email is NOT in `allowedEmails`.
+7. **Immutable Field Change**: Attempting to change `createdAt` on an existing agent.
+8. **Resource Exhaustion**: Writing a 1MB string into a `message` field.
+9. **Relational Sync Break**: Creating a widget for a department that doesn't exist.
+10. **Terminal State Reversal**: Changing a "cancelled" status back to "live" if it was locked.
+11. **Negative Bonus**: Setting `bonusEarned` to -1000.
+12. **Query Scraping**: Attempting to list all users' PII without a filter.
 
-## Implementation Guardrails
-- `isValidId()` for all document IDs.
-- `isValidUser()`, `isValidAgent()`, `isValidWidget()`, `isValidGlobalEvent()` helpers.
-- Action-based updates for Agents.
-- Terminal state locking (if applicable).
+## Test Runner (Draft)
+A `firestore.rules.test.ts` would verify these scenarios using the Firebase Rules Unit Testing library.
+
+---
+*Drafting hardened rules now...*

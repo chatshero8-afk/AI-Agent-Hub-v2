@@ -97,13 +97,20 @@ service cloud.firestore {
     }
 
     function isValidTemplate(data) {
-      let requiredFields = ['title', 'department', 'type', 'ownerId', 'createdAt'];
+      let requiredFields = ['name', 'department', 'type', 'createdAt'];
       return data.keys().hasAll(requiredFields)
-        && data.title is string && data.title.size() <= 100
+        && data.name is string && data.name.size() <= 100
         && data.department is string && data.department.size() <= 100
         && data.type is string && data.type.size() <= 100
-        && data.ownerId == request.auth.uid
         && (data.createdAt == request.time || data.createdAt == existing().createdAt);
+    }
+
+    function isValidAllowedEmail(data) {
+      let requiredFields = ['email', 'addedAt'];
+      return data.keys().hasAll(requiredFields)
+        && data.keys().size() == 2
+        && data.email is string && data.email.size() <= 128
+        && data.addedAt == request.time;
     }
 
     // --- Collections ---
@@ -163,6 +170,11 @@ service cloud.firestore {
     match /templates/{templateId} {
       allow read: if isSignedIn();
       allow write: if isAdmin() && isValidTemplate(incoming()) && isValidId(templateId);
+    }
+
+    match /allowedEmails/{emailId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() && isValidAllowedEmail(incoming()) && isValidId(emailId);
     }
 
     match /settings/{docId} {

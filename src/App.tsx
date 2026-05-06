@@ -5,15 +5,13 @@ import AgentHub from './pages/AgentHub';
 import Analytics from './pages/Analytics';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
-import TemplatesAdmin from './pages/TemplatesAdmin';
 import Login from './pages/Login';
-import DataEntry from './pages/DataEntry'; // ← NEW
 import { AuthProvider, useAuth } from './components/AuthProvider';
 import { playClickSound, playGlorySound, playTransitionSound } from './lib/sounds';
 import GlobalNotifier from './components/GlobalNotifier';
 
 // ── EXTENDED TAB TYPE ─────────────────────────────────────────────
-type TabType = 'hub' | 'analytics' | 'profile' | 'settings' | 'widgets' | 'data-entry';
+type TabType = 'hub' | 'analytics' | 'profile' | 'settings';
 
 function AuthenticatedApp() {
   const { user, profile, loading } = useAuth();
@@ -70,17 +68,17 @@ function AuthenticatedApp() {
     );
   }
 
+  const isRestricted = profile?.role === 'Intern IT' || profile?.role === 'Intern Graphic';
+
   return (
     <>
       <GlobalNotifier />
       <Layout activeTab={activeTab} onTabChange={setActiveTab}>
         <Routes>
           <Route path="/hub"        element={<AgentHub />} />
-          <Route path="/analytics"  element={<Analytics />} />
-          <Route path="/profile"    element={<Profile />} />
+          <Route path="/analytics"  element={isRestricted ? <Navigate to="/hub" /> : <Analytics />} />
+          <Route path="/profile"    element={isRestricted ? <Navigate to="/hub" /> : <Profile />} />
           <Route path="/settings"   element={<Settings />} />
-          <Route path="/widgets"    element={<TemplatesAdmin />} />
-          <Route path="/data-entry" element={<DataEntry />} /> {/* ← NEW */}
           <Route path="*"           element={<Navigate to="/hub" />} />
         </Routes>
       </Layout>

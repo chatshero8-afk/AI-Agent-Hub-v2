@@ -1,6 +1,6 @@
 {
-  "name": "ChatsHero Agent Hub",
-  "description": "Premium AI agent marketplace for ChatsHero, featuring gamified stats and real-time collaboration.",
+  "name": "ChatsHero",
+  "description": "ChatsHero Sales Dashboard with integrated GitHub repository analysis and real-time data synchronization.",
   "requestFramePermissions": [],
   "majorCapabilities": []
 }

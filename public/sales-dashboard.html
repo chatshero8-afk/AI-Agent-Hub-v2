@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatsHero — Neural Dashboard</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+        
+        :root {
+            --primary: #8B5CF6;
+            --secondary: #EC4899;
+            --green: #10b981;
+            --red: #ef4444;
+            --amber: #f59e0b;
+            --blue: #3b82f6;
+            --bg: #0f172a;
+            --card: #1e293b;
+            --text: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: rgba(255,255,255,0.1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+            background-image: radial-gradient(circle at 50% 50%, rgba(139,92,246,0.1) 0%, transparent 100%);
+        }
+
+        .loading-screen {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background: var(--bg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.5s;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+
+        .filter-bar {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            background: var(--card);
+            padding: 1rem;
+            border-radius: 1rem;
+            border: 1px solid var(--border);
+        }
+
+        select {
+            background: #0f172a;
+            color: white;
+            border: 1px solid var(--border);
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            outline: none;
+        }
+
+        .hero-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background: var(--card);
+            border-radius: 1.5rem;
+            padding: 2rem;
+            border: 1px solid var(--border);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .big-number {
+            font-size: 5rem;
+            font-weight: 900;
+            color: var(--green);
+            line-height: 1;
+            margin: 1rem 0;
+            text-shadow: 0 0 20px rgba(16,185,129,0.3);
+        }
+
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .stat-item h4 {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            letter-spacing: 0.1em;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 800;
+        }
+
+        .avatar-wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .avatar {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            border: 4px solid var(--primary);
+            padding: 5px;
+            margin-bottom: 1rem;
+        }
+
+        .avatar img {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .grid-kpis {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .kpi-card {
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        .kpi-card p:first-child {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 0.5rem;
+        }
+
+        .kpi-card p:last-child {
+            font-size: 1.25rem;
+            font-weight: 800;
+        }
+
+        .table-wrap {
+            margin-top: 2rem;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        th {
+            padding: 1rem;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border);
+        }
+
+        td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .status-pill {
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.5rem;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .status-live { background: rgba(16,185,129,0.1); color: var(--green); }
+        .status-pending { background: rgba(245,158,11,0.1); color: var(--amber); }
+
+        .error-toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: var(--red);
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+            display: none;
+            z-index: 10000;
+        }
+
+        @media (max-width: 1024px) {
+            .hero-grid { grid-template-columns: 1fr; }
+            .grid-kpis { grid-template-columns: repeat(3, 1fr); }
+        }
+
+        @media (max-width: 640px) {
+            .grid-kpis { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+    <div class="loading-screen" id="loadingScreen">
+        <div class="spinner"></div>
+        <p style="margin-top: 1.5rem; font-weight: 800; letter-spacing: 0.2em; font-size: 0.8rem; color: var(--text-muted);">SYNCING NEURAL DATA...</p>
+    </div>
+
+    <div class="error-toast" id="errorToast"></div>
+
+    <div class="container" id="mainApp">
+        <div class="filter-bar">
+            <select id="salesFilter">
+                <option value="">All Salespersons</option>
+            </select>
+            <button onclick="fetchData(true)" style="margin-left: auto; background: var(--primary); border: none; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 700; cursor: pointer;">REFRESH</button>
+        </div>
+
+        <div class="hero-grid">
+            <div class="card">
+                <h4 style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.2em;">Current Month Sales</h4>
+                <div class="big-number" id="mainRevenue">RM 0</div>
+                <div id="growthInfo" style="font-size: 0.9rem; font-weight: 700; color: var(--green);">+0% vs last month</div>
+                
+                <div class="stats-row">
+                    <div class="stat-item">
+                        <h4>Cases Closed</h4>
+                        <div class="stat-value" id="casesClosed">0</div>
+                    </div>
+                    <div class="stat-item">
+                        <h4>Closing Rate</h4>
+                        <div class="stat-value" id="closingRate" style="color: var(--primary);">0%</div>
+                    </div>
+                    <div class="stat-item">
+                        <h4>Bonus Earned</h4>
+                        <div class="stat-value" id="bonusEarned" style="color: var(--amber);">RM 0</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card avatar-wrap">
+                <div class="avatar">
+                    <img id="userAvatar" src="https://api.dicebear.com/7.x/notionists/svg?seed=ChatsHero" alt="User">
+                </div>
+                <h2 id="userName" style="font-weight: 900; margin-bottom: 0.25rem;">Consultant Name</h2>
+                <p id="userDept" style="color: var(--text-muted); font-size: 0.8rem; font-weight: 600; text-transform: uppercase;">Sales Division</p>
+                
+                <div style="width: 100%; margin-top: 2rem;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.7rem; font-weight: 800; margin-bottom: 0.5rem;">
+                        <span>TARGET PROGRESS</span>
+                        <span id="targetPct">0%</span>
+                    </div>
+                    <div style="width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden;">
+                        <div id="targetBar" style="width: 0%; height: 100%; background: var(--primary); transition: width 1s;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid-kpis">
+            <div class="card kpi-card"><p>Total Sales</p><p id="kpiTotalSales">RM 0</p></div>
+            <div class="card kpi-card"><p>Total Deals</p><p id="kpiTotalDeals">0</p></div>
+            <div class="card kpi-card"><p>Avg Closing</p><p id="kpiAvgClosing">0%</p></div>
+            <div class="card kpi-card"><p>Leads</p><p id="kpiLeads">0</p></div>
+            <div class="card kpi-card"><p>Appts</p><p id="kpiAppts">0</p></div>
+            <div class="card kpi-card"><p>CPL</p><p id="kpiCPL">RM 0</p></div>
+        </div>
+
+        <div class="card">
+            <h3 style="font-weight: 900; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                <span style="width: 4px; height: 1.5rem; background: var(--primary); border-radius: 2px;"></span>
+                RECENTLY CLOSED CASES
+            </h3>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Client</th>
+                            <th>Industry</th>
+                            <th>Plan</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th style="text-align: right;">Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recentTable">
+                        <!-- Rows will be injected -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyCV_7OCv7vkRo4OO2v-KWwBICw6GAjYv7U",
+            authDomain: "gen-lang-client-0309595856.firebaseapp.com",
+            projectId: "gen-lang-client-0309595856",
+            storageBucket: "gen-lang-client-0309595856.firebasestorage.app",
+            messagingSenderId: "1032237578648",
+            appId: "1:1032237578648:web:c86ed7ffbeb84561bf53ed"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwOVVFP-PpVv3EbhPL__PWikpqAChYkvpJPMeOah1Ox3eRBNdEUx9F4AADDi19_qCP1/exec';
+        const params = new URLSearchParams(window.location.search);
+        
+        async function checkWhitelist(email) {
+            if (!email) return false;
+            if (email === 'chatshero8@gmail.com' || email === 'irishng01@gmail.com') return true;
+            
+            try {
+                const snapshot = await db.collection('allowedEmails').where('email', '==', email.toLowerCase()).get();
+                return !snapshot.empty;
+            } catch (e) {
+                console.error("Whitelist check failed:", e);
+                return false;
+            }
+        }
+
+        async function initAuth() {
+            auth.onAuthStateChanged(async (user) => {
+                if (user) {
+                    const isAllowed = await checkWhitelist(user.email);
+                    if (!isAllowed) {
+                        showError("ACCESS DENIED: Email not whitelisted.");
+                        showLoading(false);
+                        auth.signOut();
+                        return;
+                    }
+                    console.log("Authenticated as:", user.email);
+                    fetchData();
+                } else {
+                    const provider = new firebase.auth.GoogleAuthProvider();
+                    auth.signInWithPopup(provider).catch(e => {
+                        showError("Neural handshake failed. Please refresh.");
+                    });
+                }
+            });
+        }
+
+        function showLoading(show) {
+            document.getElementById('loadingScreen').style.opacity = show ? '1' : '0';
+            document.getElementById('loadingScreen').style.visibility = show ? 'visible' : 'hidden';
+            document.getElementById('mainApp').style.opacity = show ? '0' : '1';
+        }
+
+        function showError(msg) {
+            const toast = document.getElementById('errorToast');
+            toast.textContent = msg;
+            toast.style.display = 'block';
+            setTimeout(() => { toast.style.display = 'none'; }, 5000);
+        }
+
+        async function fetchTab(tab) {
+            const url = `${SCRIPT_URL}${SCRIPT_URL.includes('?') ? '&' : '?'}tab=${tab}&t=${Date.now()}`;
+            try {
+                const res = await fetch(url);
+                if (!res.ok) return [];
+                const json = await res.json();
+                return json.ok ? json.rows || [] : [];
+            } catch (e) {
+                console.error(`Error fetching ${tab}:`, e);
+                return [];
+            }
+        }
+
+        const PLAN_PRICE = {
+            'Starter (Q)': 2850, 'Starter (A)': 9500, 'Growth (Q)': 4850, 'Growth (A)': 16000,
+            'Advance (Q)': 7850, 'Advanced (A)': 7850, 'Advance (A)': 26000, 'VIP (A)': 36000,
+            'Basic WE-DO (Quarter)': 2850, 'Moderate WE-DO（Quarter）': 4850, 'Basic WE-DO (Annual)': 9500,
+            'First Month Trial (Basic WE-DO)': 950, 'WhatsApp API Monthly': 950, 'Monthly': 950,
+            'WE-DO': 2850, 'RM400': 400
+        };
+
+        function getPrice(row) {
+            const pricing = row.planPricing || row.Plan_Pricing || '';
+            if (pricing) {
+                const num = parseFloat(String(pricing).replace(/[^0-9.]/g, ''));
+                if (!isNaN(num) && num > 0) return num;
+            }
+            return PLAN_PRICE[row.planPurchased || row.plan] || 0;
+        }
+
+        function parseDate(s) {
+            if (!s) return null;
+            if (s.includes('/')) {
+                const parts = s.split('/');
+                if (parts.length === 3) return new Date(+parts[2], +parts[1] - 1, +parts[0]);
+            }
+            const d = new Date(s);
+            return isNaN(d.getTime()) ? null : d;
+        }
+
+        function isThisMonth(s) {
+            const d = parseDate(s);
+            if (!d) return false;
+            const now = new Date();
+            return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+        }
+
+        function isLastMonth(s) {
+            const d = parseDate(s);
+            if (!d) return false;
+            const now = new Date();
+            const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            return d.getMonth() === lm.getMonth() && d.getFullYear() === lm.getFullYear();
+        }
+
+        async function fetchData(force = false) {
+            const cached = localStorage.getItem('chatshero_ds_cache');
+            if (cached && !force) {
+                const { timestamp, data } = JSON.parse(cached);
+                if (Date.now() - timestamp < 10 * 60 * 1000) { // 10 min cache
+                    displayData(data);
+                    showLoading(false);
+                    // Still fetch in background to update
+                    fetchAndCache();
+                    return;
+                }
+            }
+
+            showLoading(true);
+            await fetchAndCache();
+        }
+
+        async function fetchAndCache() {
+            try {
+                const tabs = ['new_customer', 'appointment_lists', 'customers', 'deposit'];
+                const results = await Promise.all(tabs.map(t => fetchTab(t)));
+                const data = {
+                    new_customers: results[0],
+                    appointments: results[1],
+                    customers: results[2],
+                    deposit: results[3]
+                };
+                
+                localStorage.setItem('chatshero_ds_cache', JSON.stringify({
+                    timestamp: Date.now(),
+                    data: data
+                }));
+                
+                displayData(data);
+                showLoading(false);
+            } catch (e) {
+                showError("Neural system offline. Please retry.");
+                showLoading(false);
+            }
+        }
+
+        function displayData(data) {
+            const customers = data.customers || [];
+            const leads = data.new_customers || [];
+            const appts = data.appointments || [];
+            
+            // Populate filter
+            const filter = document.getElementById('salesFilter');
+            const uniqueSales = [...new Set(customers.map(c => c.salesConsultant || c.PIC || c.Rep).filter(Boolean))];
+            const currentVal = filter.value;
+            filter.innerHTML = '<option value="">All Salespersons</option>';
+            uniqueSales.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s;
+                opt.textContent = s;
+                if (s === currentVal) opt.selected = true;
+                filter.appendChild(opt);
+            });
+
+            updateUI(data, filter.value);
+
+            filter.onchange = () => updateUI(data, filter.value);
+        }
+
+        function updateUI(data, selectedSales) {
+            const filterFn = (item) => {
+                if (!selectedSales) return true;
+                const name = (item.salesConsultant || item.PIC || item.Rep || '').toLowerCase();
+                return name.includes(selectedSales.toLowerCase());
+            };
+
+            const customers = (data.customers || []).filter(filterFn);
+            const activeCust = customers.filter(c => !String(c.projectStatus || c.status || '').toLowerCase().includes('cancelled'));
+            
+            const currentMonthCust = activeCust.filter(c => isThisMonth(c.purchaseDate || c.date));
+            const lastMonthCust = activeCust.filter(c => isLastMonth(c.purchaseDate || c.date));
+            
+            const currentRev = currentMonthCust.reduce((s, c) => s + getPrice(c), 0);
+            const lastRev = lastMonthCust.reduce((s, c) => s + getPrice(c), 0);
+            const growth = lastRev > 0 ? ((currentRev - lastRev) / lastRev * 100).toFixed(1) : 0;
+
+            document.getElementById('mainRevenue').textContent = `RM ${currentRev.toLocaleString()}`;
+            document.getElementById('growthInfo').textContent = lastRev > 0 ? `${growth}% vs last month` : 'New cycle started';
+            document.getElementById('growthInfo').style.color = growth >= 0 ? 'var(--green)' : 'var(--red)';
+
+            document.getElementById('casesClosed').textContent = currentMonthCust.length;
+            
+            const filteredAppts = (data.appointments || []).filter(filterFn);
+            const currentAppts = filteredAppts.filter(a => isThisMonth(a.appointmentDate || a.date)).length;
+            const rate = currentAppts > 0 ? (currentMonthCust.length / currentAppts * 100).toFixed(1) : 0;
+            document.getElementById('closingRate').textContent = `${rate}%`;
+
+            // Bonus logic
+            const totalRev = activeCust.reduce((s, c) => s + getPrice(c), 0);
+            let bonus = 0;
+            if (totalRev >= 80000) bonus = 2300;
+            else if (totalRev >= 60000) bonus = 1500;
+            else if (totalRev >= 40000) bonus = 800;
+            document.getElementById('bonusEarned').textContent = `RM ${bonus.toLocaleString()}`;
+
+            // KPIs
+            document.getElementById('kpiTotalSales').textContent = `RM ${totalRev.toLocaleString()}`;
+            document.getElementById('kpiTotalDeals').textContent = activeCust.length;
+            document.getElementById('kpiAvgClosing').textContent = filteredAppts.length > 0 ? (activeCust.length / filteredAppts.length * 100).toFixed(1) + '%' : '0%';
+            
+            const filteredLeads = (data.new_customers || []).filter(filterFn);
+            document.getElementById('kpiLeads').textContent = filteredLeads.length;
+            document.getElementById('kpiAppts').textContent = filteredAppts.length;
+            
+            const adsSpent = 58420; // Hardcoded or from Firebase if we pass it
+            const cpl = filteredLeads.length > 0 ? (adsSpent / filteredLeads.length).toFixed(0) : 0;
+            document.getElementById('kpiCPL').textContent = `RM ${cpl}`;
+
+            // Consultant Info
+            if (selectedSales) {
+                document.getElementById('userName').textContent = selectedSales;
+                document.getElementById('userAvatar').src = `https://api.dicebear.com/7.x/notionists/svg?seed=${selectedSales.replace(/\s/g, '')}`;
+            } else if (userEmail) {
+                const parts = userEmail.split('@')[0].split('.');
+                const name = parts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ');
+                document.getElementById('userName').textContent = name;
+                document.getElementById('userAvatar').src = `https://api.dicebear.com/7.x/notionists/svg?seed=${name.replace(/\s/g, '')}`;
+            }
+
+            // Target Progress
+            const target = 100000; // Sample target
+            const pct = Math.min(100, (currentRev / target * 100).toFixed(0));
+            document.getElementById('targetPct').textContent = `${pct}%`;
+            document.getElementById('targetBar').style.width = `${pct}%`;
+
+            // Table
+            const tbody = document.getElementById('recentTable');
+            tbody.innerHTML = '';
+            activeCust.slice(-10).reverse().forEach(c => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="font-weight: 700;">${c.customerName || c.Name || 'Unknown'}</td>
+                    <td style="font-size: 0.8rem;">${c.industry || 'Others'}</td>
+                    <td style="font-size: 0.8rem;">${c.planPurchased || c.plan || '—'}</td>
+                    <td style="font-weight: 800;">RM ${getPrice(c).toLocaleString()}</td>
+                    <td><span class="status-pill status-live">${c.projectStatus || c.status || 'Active'}</span></td>
+                    <td style="text-align: right; font-size: 0.8rem; font-family: monospace;">${c.purchaseDate || c.date || '—'}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Initialize
+        initAuth();
+    </script>
+</body>
+</html>
