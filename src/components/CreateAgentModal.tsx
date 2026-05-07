@@ -4,7 +4,7 @@ import { X, Shield, Plus, Database, Sparkles } from 'lucide-react';
 import { Department, Agent, UserRole } from '../types';
 import { collection, addDoc, doc, updateDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { useAuth } from './AuthProvider';
+import { useAuth } from '@/components/AuthProvider';
 import { DEPARTMENTS } from '../constants';
 import { playSuccessSound } from '../lib/sounds';
 import { cn } from '../lib/utils';

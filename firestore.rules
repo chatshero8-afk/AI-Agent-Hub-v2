@@ -120,16 +120,23 @@ service cloud.firestore {
     }
 
     function isValidTask(data) {
-      let requiredFields = ['title', 'status', 'date', 'priority', 'assigneeId', 'assignedById', 'createdAt'];
+      let requiredFields = ['title', 'status', 'date', 'priority', 'assigneeIds', 'assignedById', 'createdAt'];
       return data.keys().hasAll(requiredFields)
         && data.title is string && data.title.size() <= 200
         && data.status in ['todo', 'in-progress', 'in-review', 'done']
         && data.date is string && data.date.size() <= 64
         && data.priority in ['low', 'medium', 'high', 'urgent']
-        && (data.assigneeId == '' || isValidId(data.assigneeId))
+        && data.assigneeIds is list
         && isValidId(data.assignedById)
         && (data.createdAt == request.time || data.createdAt == existing().createdAt)
-        && (!('updatedAt' in data) || data.updatedAt == request.time || data.updatedAt == existing().updatedAt);
+        && (!('updatedAt' in data) || data.updatedAt == request.time || data.updatedAt == existing().updatedAt)
+        && (!('description' in data) || (data.description is string && data.description.size() <= 1000))
+        && (!('isRecurring' in data) || (data.isRecurring is bool))
+        && (!('frequency' in data) || (data.frequency in ['daily', 'weekly', 'monthly'] || data.frequency == null))
+        && (!('repeatEveryYear' in data) || (data.repeatEveryYear is bool || data.repeatEveryYear == null))
+        && (!('recurringDays' in data) || (data.recurringDays is list))
+        && (!('assignees' in data) || data.assignees is list)
+        && (!('assigneeAvatars' in data) || data.assigneeAvatars is list);
     }
 
     function isValidNotification(data) {
@@ -141,14 +148,15 @@ service cloud.firestore {
         && data.message is string && data.message.size() <= 1000
         && data.type in ['task_assigned', 'task_progress', 'task_correction', 'info']
         && data.read is bool
-        && data.createdAt == request.time;
+        && (data.createdAt == request.time)
+        && (!('taskId' in data) || isValidId(data.taskId));
     }
 
     // --- Collections ---
 
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
-      allow list: if isAdmin();
+      allow list: if isSignedIn();
       allow create: if isEmailVerified() && isValidUser(incoming()) && isValidId(userId);
       allow update: if isEmailVerified() && isValidId(userId) && (
         isAdmin() || (
@@ -162,17 +170,20 @@ service cloud.firestore {
 
     match /tasks/{taskId} {
       allow read: if isSignedIn() && (
-        resource.data.assigneeId == request.auth.uid || 
+        (request.auth.uid in resource.data.assigneeIds) || 
         resource.data.assignedById == request.auth.uid ||
         isAdmin()
       );
       allow create: if isEmailVerified() && isValidTask(incoming()) && incoming().assignedById == request.auth.uid;
       allow update: if isEmailVerified() && isValidId(taskId) && (
         isAdmin() || (
-          (existing().assignedById == request.auth.uid || existing().assigneeId == request.auth.uid) &&
+          (existing().assignedById == request.auth.uid || (request.auth.uid in existing().assigneeIds)) &&
           isValidTask(incoming()) &&
           incoming().assignedById == existing().assignedById &&
-          incoming().createdAt == existing().createdAt
+          incoming().createdAt == existing().createdAt &&
+          (existing().assignedById == request.auth.uid || 
+            incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+          )
         )
       );
       allow delete: if isEmailVerified() && (isAdmin() || existing().assignedById == request.auth.uid);

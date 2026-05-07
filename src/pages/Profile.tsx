@@ -13,7 +13,7 @@ import {
   Info,
   X
 } from 'lucide-react';
-import { useAuth } from '../components/AuthProvider';
+import { useAuth } from '@/components/AuthProvider';
 import { cn } from '../lib/utils';
 import { playEpicGamingAlert } from '../lib/sounds';
 import TodoSection from '../components/profile/TodoSection';

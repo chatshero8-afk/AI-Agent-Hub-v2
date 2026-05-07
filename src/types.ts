@@ -23,12 +23,17 @@ export interface CalendarEvent {
 export interface TodoItem {
   id: string;
   title: string;
+  description?: string;
   status: 'todo' | 'in-progress' | 'in-review' | 'done';
   date: string;
   priority: 'low' | 'medium' | 'high' | 'urgent';
-  assignee?: string;
-  assigneeId?: string;
-  assigneeAvatar?: string;
+  isRecurring?: boolean;
+  frequency?: 'daily' | 'weekly' | 'monthly';
+  repeatEveryYear?: boolean;
+  recurringDays?: string[]; // ['Mon', 'Tue', ...]
+  assignees?: string[];
+  assigneeIds?: string[];
+  assigneeAvatars?: string[];
   assignedBy?: string;
   assignedById?: string;
   createdAt: any;

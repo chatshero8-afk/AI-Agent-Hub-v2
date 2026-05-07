@@ -24,7 +24,7 @@ import {
   serverTimestamp 
 } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
-import { useAuth } from '../AuthProvider';
+import { useAuth } from '@/components/AuthProvider';
 import { AppNotification } from '../../types';
 
 export default function NotificationsPanel() {

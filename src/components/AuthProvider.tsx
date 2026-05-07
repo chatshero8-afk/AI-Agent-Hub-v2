@@ -6,7 +6,7 @@ import {
   signOut, 
   User as FirebaseUser
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp, getDocFromServer, getDocs, collection, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp, getDocFromServer, getDocs, collection, onSnapshot, query, where, updateDoc } from 'firebase/firestore';
 import { auth, db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { UserProfile, UserRole } from '../types';
 
@@ -26,41 +26,73 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    let unsubscribeProfile: (() => void) | null = null;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       setUser(user);
+      
+      // Cleanup previous profile subscription if it exists
+      if (unsubscribeProfile) {
+        unsubscribeProfile();
+        unsubscribeProfile = null;
+      }
+
       if (user) {
-        // Listen to user profile
         const userDocRef = doc(db, 'users', user.uid);
-        const unsubscribeProfile = onSnapshot(userDocRef, async (userDoc) => {
+        
+        // Listen to user profile
+        unsubscribeProfile = onSnapshot(userDocRef, async (userDoc) => {
           if (userDoc.exists()) {
             const data = userDoc.data() as UserProfile;
+            
             // Auto-promote admin emails
             const isAdminEmail = user.email === 'chatshero8@gmail.com' || user.email === 'irishng01@gmail.com';
             
-            if (isAdminEmail && (!data.isAdmin || data.role !== 'admin' as any)) {
+            // Also check whitelist for auto-approval
+            let isWhitelisted = false;
+            try {
+              const whitelistSnap = await getDocs(query(collection(db, 'allowedEmails'), where('email', '==', user.email?.toLowerCase())));
+              isWhitelisted = !whitelistSnap.empty;
+            } catch (e) {
+              console.error("Whitelist check failed", e);
+            }
+
+            const shouldApprove = isAdminEmail || isWhitelisted;
+            
+            if (shouldApprove && data.role === 'pending') {
               try {
-                await setDoc(userDocRef, { 
-                  role: 'admin' as any,
-                  isAdmin: true 
-                }, { merge: true });
-                data.role = 'admin' as any;
-                data.isAdmin = true;
+                await updateDoc(userDocRef, { 
+                  role: isAdminEmail ? 'admin' : 'Junior IT',
+                  isAdmin: isAdminEmail 
+                });
+                data.role = isAdminEmail ? 'admin' as any : 'Junior IT' as any;
+                if (isAdminEmail) data.isAdmin = true;
               } catch (e) {
-                console.error("Failed to auto-promote admin", e);
+                console.error("Failed to auto-approve whitelisted user", e);
               }
             }
+            
             setProfile(data);
             setLoading(false);
           } else {
             // New user registration
             const isAdminUser = user.email === 'chatshero8@gmail.com' || user.email === 'irishng01@gmail.com';
             
+            // Check whitelist for new users too
+            let isWhitelisted = false;
+            try {
+              const whitelistSnap = await getDocs(query(collection(db, 'allowedEmails'), where('email', '==', user.email?.toLowerCase())));
+              isWhitelisted = !whitelistSnap.empty;
+            } catch (e) {
+              console.error("Whitelist check failed", e);
+            }
+
             const newProfile: UserProfile = {
               uid: user.uid,
               name: user.displayName || 'Hero',
               email: user.email || '',
               avatar: user.photoURL || '',
-              role: isAdminUser ? 'admin' as any : 'pending' as any,
+              role: (isAdminUser || isWhitelisted) ? (isAdminUser ? 'admin' : 'Junior IT') as any : 'pending' as any,
               isAdmin: isAdminUser,
             };
 
@@ -69,30 +101,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 ...newProfile,
                 createdAt: serverTimestamp(),
               });
-              // Profile state will be updated by the next snapshot
             } catch (e) {
               console.error("Failed to create user profile", e);
-              // Fallback to local profile while write is pending
               setProfile(newProfile);
               setLoading(false);
             }
           }
         }, (error) => {
           console.error("Profile snapshot error:", error);
-          // Don't crash the app, but stop loading if we get an error (e.g. permission denied)
           setLoading(false);
         });
-        
-        return () => {
-          unsubscribeProfile();
-        };
       } else {
         setProfile(null);
         setLoading(false);
       }
     });
 
-    return unsubscribe;
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeProfile) unsubscribeProfile();
+    };
   }, []);
 
   const login = async () => {

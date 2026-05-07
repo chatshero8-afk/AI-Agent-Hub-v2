@@ -8,7 +8,7 @@ import Sales from './pages/Sales';
 import Settings from './pages/Settings';
 import Login from './pages/Login';
 import StaffWorkspace from './pages/StaffWorkspace';
-import { AuthProvider, useAuth } from './components/AuthProvider';
+import { AuthProvider, useAuth } from '@/components/AuthProvider';
 import { playClickSound, playGlorySound, playTransitionSound } from './lib/sounds';
 import GlobalNotifier from './components/GlobalNotifier';
 
@@ -63,7 +63,7 @@ function AuthenticatedApp() {
     return <Navigate to="/login" />;
   }
 
-  if (profile?.role === 'pending') {
+  if (profile?.role === 'pending' && !profile?.isAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 px-4 text-center">
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 p-8 rounded-[2rem] max-w-md shadow-xl">

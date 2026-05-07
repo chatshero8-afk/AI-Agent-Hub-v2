@@ -90,7 +90,56 @@
       "required": ["name", "department", "type", "createdAt"]
     }
   },
+    "Task": {
+      "title": "Mission/Task",
+      "description": "A task assigned to one or more agents",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "status": { "type": "string", "enum": ["todo", "in-progress", "in-review", "done"] },
+        "priority": { "type": "string", "enum": ["low", "medium", "high", "urgent"] },
+        "date": { "type": "string" },
+        "assigneeIds": { "type": "array", "items": { "type": "string" } },
+        "assignees": { "type": "array", "items": { "type": "string" } },
+        "assigneeAvatars": { "type": "array", "items": { "type": "string" } },
+        "assignedBy": { "type": "string" },
+        "assignedById": { "type": "string" },
+        "isRecurring": { "type": "boolean" },
+        "frequency": { "type": "string", "enum": ["daily", "weekly", "monthly"] },
+        "repeatEveryYear": { "type": "boolean" },
+        "recurringDays": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "status", "date", "priority", "assigneeIds", "assignedById", "createdAt"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "System or user notifications",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string", "enum": ["task_assigned", "task_progress", "task_correction", "info"] },
+        "read": { "type": "boolean" },
+        "taskId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "senderId", "title", "message", "type", "read", "createdAt"]
+    }
+  },
   "firestore": {
+    "/tasks/{taskId}": {
+      "schema": "Task",
+      "description": "Missions and tasks assigned to agents"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "User notifications"
+    },
     "/global_events/{eventId}": {
       "schema": "GlobalEvent",
       "description": "Global events broadcast to all users"

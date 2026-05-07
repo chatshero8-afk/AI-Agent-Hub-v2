@@ -11,7 +11,7 @@ import { Search, SlidersHorizontal, Plus, Database, ArchiveRestore, Trash2 } fro
 import { Agent } from '../types';
 import { collection, onSnapshot, query, orderBy, deleteDoc, updateDoc, doc, where, or, limit } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { useAuth } from '../components/AuthProvider';
+import { useAuth } from '@/components/AuthProvider';
 import { playWinningSound } from '../lib/sounds';
 import HolidayBar from '../components/HolidayBar';
 

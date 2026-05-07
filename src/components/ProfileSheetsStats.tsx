@@ -13,7 +13,7 @@
 
 import { RefreshCw, Wifi, WifiOff } from 'lucide-react';
 import { useSheetsData, type SheetsStats } from '../lib/useSheetsData';
-import { useAuth } from './AuthProvider';
+import { useAuth } from '@/components/AuthProvider';
 import { cn } from '@/lib/utils';
 
 export default function ProfileSheetsStats() {

@@ -3,7 +3,7 @@ import { Sun, Moon, LayoutGrid, BarChart3, Menu, X, LogOut, User, Shield, Layout
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from './AuthProvider';
+import { useAuth } from '@/components/AuthProvider';
 
 interface LayoutProps {
   children: React.ReactNode;

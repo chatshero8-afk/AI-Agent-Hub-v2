@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Github, ExternalLink, RefreshCw, AlertCircle, CheckCircle2, ChevronRight, Database, FolderSearch, Layout, Code } from 'lucide-react';
 import { githubService, GitHubRepo, GitHubContent } from '../services/githubService';
-import { useAuth } from './AuthProvider';
+import { useAuth } from '@/components/AuthProvider';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { cn } from '../lib/utils';

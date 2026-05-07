@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import { useAuth } from '../components/AuthProvider';
+import { useAuth } from '@/components/AuthProvider';
 import { LogIn, Rocket, ShieldCheck, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';

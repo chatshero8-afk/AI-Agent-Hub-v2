@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { Agent } from '@/types';
 import { Shield, Zap, TrendingUp, User, ExternalLink, Pencil, Trash, ArchiveRestore } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useAuth } from './AuthProvider';
+import { useAuth } from '@/components/AuthProvider';
 
 const availableImages = [
   '1.svg', '2.svg', '3.svg', '4.svg', '5.svg', '6.svg', '7.svg', '8.svg',

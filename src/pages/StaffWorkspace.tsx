@@ -16,7 +16,7 @@ import {
   Shield,
   Crown
 } from 'lucide-react';
-import { useAuth } from '../components/AuthProvider';
+import { useAuth } from '@/components/AuthProvider';
 import { cn } from '../lib/utils';
 
 export default function StaffWorkspace() {

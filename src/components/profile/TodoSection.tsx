@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Calendar as CalendarIcon, 
@@ -14,9 +14,10 @@ import {
   Search,
   Undo2,
   AlertCircle,
-  RefreshCw
+  RefreshCw,
+  User
 } from 'lucide-react';
-import { useAuth } from '../AuthProvider';
+import { useAuth } from '@/components/AuthProvider';
 import { cn } from '../../lib/utils';
 import { 
   collection, 
@@ -34,7 +35,7 @@ import {
 import { db } from '../../lib/firebase';
 import { UserProfile, TodoItem, NotificationType } from '../../types';
 
-type ViewMode = 'kanban' | 'calendar' | 'list';
+type ViewMode = 'kanban' | 'calendar';
 
 type Task = TodoItem;
 
@@ -43,9 +44,12 @@ const STATUS_ORDER = ['todo', 'in-progress', 'in-review', 'done'];
 export default function TodoSection() {
   const { profile, user } = useAuth();
   const [view, setView] = useState<ViewMode>('kanban');
+  const [viewFilter, setViewFilter] = useState<'all' | 'me' | 'others'>('all');
   const [tasks, setTasks] = useState<Task[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const notificationTimeouts = useRef<Record<string, NodeJS.Timeout>>({});
+  const lastCheckRef = useRef<number>(0);
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'users'), (snapshot) => {
@@ -62,22 +66,15 @@ export default function TodoSection() {
     const q = query(
       collection(db, 'tasks'), 
       or(
-        where('assigneeId', '==', user.uid),
+        where('assigneeIds', 'array-contains', user.uid),
         where('assignedById', '==', user.uid)
       ),
       orderBy('createdAt', 'desc')
     );
     
-    // Note: Due to Firestore query constraints with row-level security, 
-    // we fetch all but client-side filtering ensures we only see our business.
-    // However, to satisfy 'allow list' rules, we should ideally use multiple queries 
-    // or the 'or' operator if supported.
-    
     const unsub = onSnapshot(q, (snapshot) => {
       const allTasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Task));
-      // Client-side filtering as a fallback/secondary layer
-      const filtered = allTasks.filter(t => t.assigneeId === user.uid || t.assignedById === user.uid);
-      setTasks(filtered);
+      setTasks(allTasks);
       setLoading(false);
     }, (error) => {
       console.error("Task subscription error:", error);
@@ -85,26 +82,94 @@ export default function TodoSection() {
     });
     return () => unsub();
   }, [user]);
+
+  // Automated Mission Monitor: Due date alerts
+  useEffect(() => {
+    if (!user || tasks.length === 0) return;
+
+    const checkDeadlines = () => {
+      const now = new Date();
+      const endOfToday = new Date(now);
+      endOfToday.setHours(23, 59, 59, 999);
+      
+      const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
+      
+      tasks.forEach(task => {
+        if (task.status === 'done' || !task.date) return;
+        
+        const deadline = new Date(task.date);
+        const taskId = task.id;
+        
+        // 1. Due Today Alert (Daily briefing)
+        const isToday = deadline >= now && deadline <= endOfToday;
+        const todayKey = `notified_today_${taskId}`;
+        if (isToday && !localStorage.getItem(todayKey)) {
+          sendNotification(
+            user.uid,
+            'Mission Due Today',
+            `Objective "${task.title}" is scheduled for completion today.`,
+            'info',
+            taskId
+          );
+          localStorage.setItem(todayKey, 'true');
+        }
+
+        // 2. Final Hour Warning
+        const isCritical = deadline > now && deadline < oneHourFromNow;
+        const criticalKey = `notified_critical_${taskId}`;
+        if (isCritical && !localStorage.getItem(criticalKey)) {
+          sendNotification(
+            user.uid,
+            'CRITICAL WARNING',
+            `Mission "${task.title}" expires in less than 1 hour!`,
+            'urgent' as any,
+            taskId
+          );
+          localStorage.setItem(criticalKey, 'true');
+        }
+      });
+    };
+
+    checkDeadlines();
+    const interval = setInterval(checkDeadlines, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [user, tasks.length]);
+
+  const filteredTasks = tasks.filter(t => {
+    if (viewFilter === 'me') return t.assigneeIds?.includes(user?.uid || '');
+    if (viewFilter === 'others') return t.assignedById === user?.uid && !(t.assigneeIds?.length === 1 && t.assigneeIds.includes(user?.uid || ''));
+    return true;
+  });
   
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [modalFormData, setModalFormData] = useState({ 
     title: '', 
+    description: '',
     status: 'todo' as Task['status'], 
     date: new Date().toISOString().slice(0, 16), 
     priority: 'medium' as Task['priority'],
-    assigneeId: ''
+    assigneeIds: [] as string[],
+    isRecurring: false,
+    frequency: 'daily' as Task['frequency'],
+    repeatEveryYear: false,
+    recurringDays: [] as string[]
   });
 
   const openAddTask = (status: Task['status']) => {
     setEditingTaskId(null);
     setModalFormData({ 
       title: '', 
+      description: '',
       status, 
       date: new Date().toISOString().slice(0, 16), 
       priority: 'medium',
-      assigneeId: ''
+      assigneeIds: [user?.uid || ''],
+      isRecurring: false,
+      frequency: 'daily',
+      repeatEveryYear: false,
+      recurringDays: []
     });
     setIsModalOpen(true);
   };
@@ -115,10 +180,15 @@ export default function TodoSection() {
       setEditingTaskId(id);
       setModalFormData({ 
         title: task.title, 
+        description: task.description || '',
         status: task.status, 
         date: task.date.length === 10 ? `${task.date}T12:00` : task.date, 
         priority: task.priority || 'medium',
-        assigneeId: task.assigneeId || ''
+        assigneeIds: task.assigneeIds || [],
+        isRecurring: task.isRecurring || false,
+        frequency: task.frequency || 'daily',
+        repeatEveryYear: task.repeatEveryYear || false,
+        recurringDays: task.recurringDays || []
       });
       setIsModalOpen(true);
     }
@@ -148,15 +218,20 @@ export default function TodoSection() {
       return;
     }
     
-    const selectedAssignee = users.find(u => u.uid === modalFormData.assigneeId);
+    const selectedAssignees = users.filter(u => modalFormData.assigneeIds.includes(u.uid));
     const taskData: any = {
       title: modalFormData.title,
+      description: modalFormData.description,
       status: modalFormData.status,
       date: modalFormData.date,
       priority: modalFormData.priority,
-      assigneeId: modalFormData.assigneeId,
-      assignee: selectedAssignee ? (selectedAssignee.name || selectedAssignee.email) : '',
-      assigneeAvatar: selectedAssignee ? selectedAssignee.avatar : '',
+      assigneeIds: modalFormData.assigneeIds,
+      assignees: selectedAssignees.map(u => u.name || u.email),
+      assigneeAvatars: selectedAssignees.map(u => u.avatar),
+      isRecurring: modalFormData.isRecurring,
+      frequency: modalFormData.isRecurring ? modalFormData.frequency : null,
+      repeatEveryYear: modalFormData.isRecurring ? modalFormData.repeatEveryYear : null,
+      recurringDays: modalFormData.isRecurring ? modalFormData.recurringDays : [],
       updatedAt: serverTimestamp()
     };
 
@@ -164,14 +239,17 @@ export default function TodoSection() {
       const oldTask = tasks.find(t => t.id === editingTaskId);
       await updateDoc(doc(db, 'tasks', editingTaskId), taskData);
       
-      if (oldTask && oldTask.assigneeId !== modalFormData.assigneeId && modalFormData.assigneeId) {
-        await sendNotification(
-          modalFormData.assigneeId,
-          'New Mission Assigned',
-          `You've been assigned to: ${modalFormData.title}`,
-          'task_assigned',
-          editingTaskId
-        );
+      const newAssignees = modalFormData.assigneeIds.filter(id => !oldTask?.assigneeIds?.includes(id));
+      for (const id of newAssignees) {
+        if (id !== user?.uid) {
+          await sendNotification(
+            id,
+            'New Mission Assigned',
+            `You've been assigned to: ${modalFormData.title}`,
+            'task_assigned',
+            editingTaskId
+          );
+        }
       }
     } else {
       const docRef = await addDoc(collection(db, 'tasks'), {
@@ -181,14 +259,16 @@ export default function TodoSection() {
         createdAt: serverTimestamp()
       });
       
-      if (modalFormData.assigneeId && modalFormData.assigneeId !== user?.uid) {
-        await sendNotification(
-          modalFormData.assigneeId,
-          'New Mission Assigned',
-          `You've been assigned to: ${modalFormData.title}`,
-          'task_assigned',
-          docRef.id
-        );
+      for (const id of modalFormData.assigneeIds) {
+        if (id !== user?.uid) {
+          await sendNotification(
+            id,
+            'New Mission Assigned',
+            `You've been assigned to: ${modalFormData.title}`,
+            'task_assigned',
+            docRef.id
+          );
+        }
       }
     }
     setIsModalOpen(false);
@@ -201,22 +281,57 @@ export default function TodoSection() {
     const oldStatus = task.status;
     const oldIndex = STATUS_ORDER.indexOf(oldStatus);
     const newIndex = STATUS_ORDER.indexOf(newStatus);
+    
+    // 1. Optimistic Update
+    const previousTasks = [...tasks];
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, status: newStatus } : t));
 
-    await updateDoc(doc(db, 'tasks', id), { 
-      status: newStatus,
-      updatedAt: serverTimestamp()
-    });
+    try {
+      if (task.assignedById !== user?.uid && !profile?.isAdmin) {
+        // Limited movement check if needed, but usually moving status is fine
+      }
 
-    // Notification logic
-    const isUndo = newIndex < oldIndex;
-    if (task.assignedById && task.assignedById !== user?.uid) {
-      await sendNotification(
-        task.assignedById,
-        isUndo ? 'Mission Correction' : 'Mission Progress',
-        `${profile?.name || 'Assignee'} changed "${task.title}" to ${newStatus}`,
-        isUndo ? 'task_correction' : 'task_progress',
-        id
-      );
+      await updateDoc(doc(db, 'tasks', id), { 
+        status: newStatus,
+        updatedAt: serverTimestamp()
+      });
+
+      // 2. Throttled/Debounced Notification Logic
+      // Clear existing timeout for this task if any
+      if (notificationTimeouts.current[id]) {
+        clearTimeout(notificationTimeouts.current[id]);
+      }
+
+      // Schedule new notification
+      notificationTimeouts.current[id] = setTimeout(async () => {
+        const isUndo = newIndex < oldIndex;
+        
+        // Notify Assigner of Progress
+        if (task.assignedById && task.assignedById !== user?.uid) {
+           let title = isUndo ? 'Mission Correction' : 'Mission Progress';
+           let type = isUndo ? 'task_correction' : 'task_progress';
+           
+           if (newStatus === 'in-review') {
+             title = 'Objective Ready for Review';
+             type = 'info';
+           }
+
+          await sendNotification(
+            task.assignedById,
+            title,
+            `${profile?.name || 'Assignee'} set objective "${task.title}" to ${newStatus}`,
+            type as any,
+            id
+          );
+        }
+        delete notificationTimeouts.current[id];
+      }, 3000);
+
+    } catch (err) {
+      console.error("Move Task error:", err);
+      // Rollback on failure
+      setTasks(previousTasks);
+      alert("Failed to sync mission status. Reverting...");
     }
   };
 
@@ -262,16 +377,36 @@ export default function TodoSection() {
                   </button>
                 </div>
                 
-                <div className="space-y-4">
+                <div className="space-y-4 max-h-[60vh] overflow-y-auto px-1 custom-scrollbar">
+                  {editingTaskId && tasks.find(t => t.id === editingTaskId)?.assignedById !== user?.uid && !profile?.isAdmin && (
+                    <div className="p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-[10px] font-bold text-indigo-400 uppercase tracking-widest flex items-start gap-3 mb-4">
+                      <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                      <span>You are an assigned agent. Mission details are read-only; only the status can be updated.</span>
+                    </div>
+                  )}
+
                   <div>
                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Objective Title</label>
                     <input 
                       type="text" 
                       value={modalFormData.title}
                       onChange={e => setModalFormData({...modalFormData, title: e.target.value})}
+                      disabled={editingTaskId !== null && tasks.find(t => t.id === editingTaskId)?.assignedById !== user?.uid && !profile?.isAdmin}
                       placeholder="e.g. Upgrade AI Model"
-                      className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-white outline-none focus:border-indigo-500/50 focus:bg-black/40 transition-colors"
+                      className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-white outline-none focus:border-indigo-500/50 focus:bg-black/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       autoFocus
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Mission Description</label>
+                    <textarea 
+                      value={modalFormData.description}
+                      onChange={e => setModalFormData({...modalFormData, description: e.target.value})}
+                      disabled={editingTaskId !== null && tasks.find(t => t.id === editingTaskId)?.assignedById !== user?.uid && !profile?.isAdmin}
+                      placeholder="Identify objectives and sub-tasks..."
+                      rows={3}
+                      className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-white outline-none focus:border-indigo-500/50 focus:bg-black/40 transition-colors resize-none disabled:opacity-50 disabled:cursor-not-allowed"
                     />
                   </div>
                   
@@ -296,29 +431,157 @@ export default function TodoSection() {
                         type="datetime-local" 
                         value={modalFormData.date}
                         onChange={e => setModalFormData({...modalFormData, date: e.target.value})}
-                        className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-slate-300 outline-none focus:border-indigo-500/50"
+                        disabled={editingTaskId !== null && tasks.find(t => t.id === editingTaskId)?.assignedById !== user?.uid && !profile?.isAdmin}
+                        className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-slate-300 outline-none focus:border-indigo-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
                         style={{ colorScheme: 'dark' }}
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Assign Agent</label>
-                    <select 
-                      value={modalFormData.assigneeId}
-                      onChange={e => setModalFormData({...modalFormData, assigneeId: e.target.value})}
-                      className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-white outline-none focus:border-indigo-500/50 appearance-none"
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Event Type</label>
+                    <div className="flex gap-2">
+                       <button
+                        onClick={() => setModalFormData({...modalFormData, isRecurring: false})}
+                        disabled={editingTaskId !== null && tasks.find(t => t.id === editingTaskId)?.assignedById !== user?.uid && !profile?.isAdmin}
+                        className={cn(
+                          "flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-widest border transition-all",
+                          !modalFormData.isRecurring 
+                            ? "bg-indigo-500/20 border-indigo-500/50 text-indigo-400"
+                            : "bg-transparent border-white/5 text-slate-500 hover:bg-white/5",
+                          "disabled:opacity-50 disabled:cursor-not-allowed"
+                        )}
+                      >
+                        Once
+                      </button>
+                      <button
+                        onClick={() => setModalFormData({...modalFormData, isRecurring: true})}
+                        disabled={editingTaskId !== null && tasks.find(t => t.id === editingTaskId)?.assignedById !== user?.uid && !profile?.isAdmin}
+                        className={cn(
+                          "flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-widest border transition-all",
+                          modalFormData.isRecurring 
+                            ? "bg-purple-500/20 border-purple-500/50 text-purple-400"
+                            : "bg-transparent border-white/5 text-slate-500 hover:bg-white/5",
+                          "disabled:opacity-50 disabled:cursor-not-allowed"
+                        )}
+                      >
+                        Recurring
+                      </button>
+                    </div>
+                  </div>
+
+                  {modalFormData.isRecurring && (
+                    <motion.div 
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      className="space-y-4 pt-2 border-t border-white/5"
                     >
-                      <option className="bg-[#151c2b] text-white" value="">Personal Task (Myself)</option>
-                      {users.filter(u => u.uid !== user?.uid).map(u => (
-                        <option className="bg-[#151c2b] text-white" key={u.uid} value={u.uid}>{u.name || u.email}</option>
-                      ))}
-                    </select>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Frequency</label>
+                          <select 
+                            value={modalFormData.frequency}
+                            onChange={e => setModalFormData({...modalFormData, frequency: e.target.value as any})}
+                            className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-xs font-bold text-white outline-none appearance-none"
+                          >
+                            <option className="bg-[#151c2b] text-white" value="daily">Daily</option>
+                            <option className="bg-[#151c2b] text-white" value="weekly">Weekly</option>
+                            <option className="bg-[#151c2b] text-white" value="monthly">Monthly</option>
+                          </select>
+                        </div>
+                        <div className="flex items-center gap-2 pt-6">
+                          <input 
+                            type="checkbox" 
+                            id="repeatYear"
+                            checked={modalFormData.repeatEveryYear}
+                            onChange={e => setModalFormData({...modalFormData, repeatEveryYear: e.target.checked})}
+                            className="w-4 h-4 rounded bg-black/20 border-white/10 text-indigo-500"
+                          />
+                          <label htmlFor="repeatYear" className="text-[10px] font-bold text-slate-400 uppercase tracking-widest cursor-pointer">Every Year</label>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Select Training Days (Mon-Sun)</label>
+                        <div className="flex flex-wrap gap-1.5">
+                          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
+                            <button
+                              key={day}
+                              onClick={() => {
+                                const days = modalFormData.recurringDays.includes(day)
+                                  ? modalFormData.recurringDays.filter(d => d !== day)
+                                  : [...modalFormData.recurringDays, day];
+                                setModalFormData({...modalFormData, recurringDays: days});
+                              }}
+                              className={cn(
+                                "w-9 h-9 rounded-lg text-[10px] font-black uppercase border transition-all",
+                                modalFormData.recurringDays.includes(day)
+                                  ? "bg-indigo-500 text-white border-indigo-400 shadow-[0_0_10px_rgba(99,102,241,0.3)]"
+                                  : "bg-black/20 border-white/5 text-slate-500 hover:border-white/10"
+                              )}
+                            >
+                              {day.slice(0, 3)}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2.5">Assign Agents</label>
+                    {profile?.role?.startsWith('Intern') ? (
+                      <div className="p-4 bg-orange-500/10 border border-orange-500/20 rounded-xl text-[10px] font-bold text-orange-400 uppercase tracking-widest flex items-start gap-3">
+                        <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                        <span>Interns are restricted from assigning missions. You can only assign tasks to yourself.</span>
+                      </div>
+                    ) : (
+                      <div className={cn(
+                        "grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-2 bg-black/20 border border-white/10 rounded-xl custom-scrollbar",
+                        editingTaskId !== null && tasks.find(t => t.id === editingTaskId)?.assignedById !== user?.uid && !profile?.isAdmin && "opacity-50 pointer-events-none"
+                      )}>
+                        {users.map(u => (
+                          <label 
+                            key={u.uid} 
+                            className={cn(
+                              "flex items-center gap-2 p-2 rounded-lg border transition-all cursor-pointer",
+                              modalFormData.assigneeIds.includes(u.uid)
+                                ? "bg-indigo-500/20 border-indigo-500/40"
+                                : "bg-transparent border-white/5 hover:bg-white/5"
+                            )}
+                          >
+                            <input 
+                              type="checkbox"
+                              className="hidden"
+                              checked={modalFormData.assigneeIds.includes(u.uid)}
+                              onChange={(e) => {
+                                let newIds;
+                                if (e.target.checked) {
+                                  newIds = [...modalFormData.assigneeIds, u.uid];
+                                } else {
+                                  newIds = modalFormData.assigneeIds.filter(id => id !== u.uid);
+                                }
+                                setModalFormData({...modalFormData, assigneeIds: newIds});
+                              }}
+                            />
+                            <div className="w-6 h-6 rounded-full overflow-hidden bg-slate-800 border border-white/10">
+                              <img src={u.avatar || "/images/8.svg"} className="w-full h-full object-cover" />
+                            </div>
+                            <span className="text-[10px] font-bold text-slate-300 truncate">
+                              {u.uid === user?.uid ? 'Me' : (u.name || u.email?.split('@')[0])}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   <div>
                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Priority</label>
-                    <div className="flex flex-wrap gap-2">
+                    <div className={cn(
+                      "flex flex-wrap gap-2",
+                      editingTaskId !== null && tasks.find(t => t.id === editingTaskId)?.assignedById !== user?.uid && !profile?.isAdmin && "opacity-50 pointer-events-none"
+                    )}>
                       {['low', 'medium', 'high', 'urgent'].map(p => (
                         <button
                           key={p}
@@ -354,7 +617,7 @@ export default function TodoSection() {
         </AnimatePresence>
         
         {/* Header Title */}
-        <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-10">
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 mb-10">
           <div className="flex items-center gap-4">
             <div className="w-1.5 h-10 bg-gradient-to-b from-indigo-400 to-purple-500 rounded-full shadow-[0_0_15px_rgba(168,85,247,0.5)]" />
             <div>
@@ -366,9 +629,42 @@ export default function TodoSection() {
               </p>
             </div>
           </div>
-          
-          {/* View Toggles */}
-          <div className="flex items-center gap-1.5 p-1.5 bg-black/20 rounded-[1.2rem] border border-white/5 shadow-inner backdrop-blur-md">
+
+          <div className="flex flex-wrap items-center gap-4">
+            {/* Mission Perspective Filter */}
+            <div className="flex bg-black/40 p-1 rounded-xl border border-white/5 backdrop-blur-sm">
+              <button 
+                onClick={() => setViewFilter('all')}
+                className={cn(
+                  "px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                  viewFilter === 'all' ? "bg-white/10 text-white shadow-lg border border-white/5" : "text-slate-500 hover:text-slate-400"
+                )}
+              >
+                All
+              </button>
+              <button 
+                onClick={() => setViewFilter('me')}
+                className={cn(
+                  "px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                  viewFilter === 'me' ? "bg-white/10 text-white shadow-lg border border-white/5" : "text-slate-500 hover:text-slate-400"
+                )}
+              >
+                Me
+              </button>
+              <button 
+                onClick={() => setViewFilter('others')}
+                className={cn(
+                  "px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2",
+                  viewFilter === 'others' ? "bg-white/10 text-white shadow-lg border border-white/5" : "text-slate-500 hover:text-slate-400"
+                )}
+              >
+                Others
+                <div className={cn("w-1.5 h-1.5 rounded-full bg-indigo-500", viewFilter === 'others' && "animate-pulse")} />
+              </button>
+            </div>
+            
+            {/* View Toggles */}
+            <div className="flex items-center gap-1.5 p-1.5 bg-black/20 rounded-[1.2rem] border border-white/5 shadow-inner backdrop-blur-md">
             <button
               onClick={() => setView('kanban')}
               className={cn(
@@ -377,15 +673,6 @@ export default function TodoSection() {
               )}
             >
               <Kanban size={14} /> Kanban
-            </button>
-            <button
-              onClick={() => setView('list')}
-              className={cn(
-                "flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest transition-all",
-                view === 'list' ? "bg-white/10 text-white shadow-sm border border-white/10" : "text-slate-400 hover:text-slate-200"
-              )}
-            >
-              <ListIcon size={14} /> List
             </button>
             <button
               onClick={() => setView('calendar')}
@@ -398,9 +685,10 @@ export default function TodoSection() {
             </button>
           </div>
         </div>
+      </div>
 
-        {/* Content Area */}
-        <div className="flex-1 min-h-[400px]">
+      {/* Content Area */}
+      <div className="flex-1 min-h-[400px]">
           <AnimatePresence mode="wait">
             {view === 'kanban' && (
               <motion.div
@@ -413,7 +701,7 @@ export default function TodoSection() {
                 <KanbanColumn 
                   title="TO DO" 
                   status="todo" 
-                  tasks={tasks} 
+                  tasks={filteredTasks} 
                   color="bg-slate-400" 
                   onDrop={moveTask} 
                   onDelete={deleteTask}
@@ -424,7 +712,7 @@ export default function TodoSection() {
                 <KanbanColumn 
                   title="IN PROGRESS" 
                   status="in-progress" 
-                  tasks={tasks} 
+                  tasks={filteredTasks} 
                   color="bg-blue-400" 
                   onDrop={moveTask} 
                   onDelete={deleteTask}
@@ -435,7 +723,7 @@ export default function TodoSection() {
                 <KanbanColumn 
                   title="IN REVIEW" 
                   status="in-review" 
-                  tasks={tasks} 
+                  tasks={filteredTasks} 
                   color="bg-amber-400" 
                   onDrop={moveTask} 
                   onDelete={deleteTask}
@@ -446,7 +734,7 @@ export default function TodoSection() {
                 <KanbanColumn 
                   title="COMPLETED" 
                   status="done" 
-                  tasks={tasks} 
+                  tasks={filteredTasks} 
                   color="bg-emerald-400" 
                   onDrop={moveTask} 
                   onDelete={deleteTask}
@@ -454,93 +742,6 @@ export default function TodoSection() {
                   onAdd={() => openAddTask('done')}
                   defaultAvatar={profile?.avatar || "/images/8.svg"}
                 />
-              </motion.div>
-            )}
-
-            {view === 'list' && (
-              <motion.div
-                key="list"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.98 }}
-                className="space-y-2 p-2"
-              >
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-xl font-black text-white uppercase tracking-tighter drop-shadow-md">ALL MISSIONS</h3>
-                  <button onClick={() => openAddTask('todo')} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/30 text-xs font-bold uppercase tracking-widest transition-all shadow-[0_0_15px_rgba(99,102,241,0.2)]">
-                    <Plus size={14} /> New Mission
-                  </button>
-                </div>
-                {tasks.length === 0 ? (
-                  <div className="text-center py-12 text-slate-400 font-bold uppercase tracking-widest text-sm border-2 border-dashed border-white/10 rounded-2xl bg-black/10">
-                    No Missions Assigned
-                  </div>
-                ) : (
-                  tasks.map(task => {
-                    const isForMe = task.assigneeId === user?.uid;
-                    const isByMe = task.assignedById === user?.uid;
-
-                    return (
-                    <div key={task.id} className={cn(
-                      "flex items-center justify-between p-4 rounded-2xl transition-all group shadow-sm backdrop-blur-md relative overflow-hidden",
-                      isForMe || isByMe ? "bg-black/20 border border-white/5 hover:border-indigo-500/40 hover:bg-black/40" : "opacity-60 grayscale"
-                    )}>
-                      <div className="flex items-center gap-4 cursor-pointer relative z-10 flex-1" onClick={() => moveTask(task.id, task.status === 'done' ? 'todo' : 'done')}>
-                        {task.status === 'done' ? (
-                          <CheckCircle className="text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.8)] shrink-0" size={20} />
-                        ) : task.status === 'in-progress' ? (
-                          <Clock className="text-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.8)] shrink-0" size={20} />
-                        ) : task.status === 'in-review' ? (
-                          <Search className="text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.8)] shrink-0" size={20} />
-                        ) : (
-                          <Circle className="text-slate-400 group-hover:text-slate-300 shrink-0" size={20} />
-                        )}
-                        <span className={cn(
-                          "font-bold text-sm transition-colors hidden sm:block",
-                          task.status === 'done' ? "text-slate-500 line-through" : "text-slate-200"
-                        )}>
-                          {task.title}
-                        </span>
-                        {task.priority && (
-                          <span className={cn(
-                            "px-2 py-0.5 rounded ml-2 text-[8px] font-black uppercase tracking-widest hidden md:block",
-                            task.priority === 'urgent' ? "bg-red-500/20 text-red-400 border border-red-500/30" :
-                            task.priority === 'high' ? "bg-orange-500/20 text-orange-400 border border-orange-500/30" :
-                            task.priority === 'medium' ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" :
-                            "bg-slate-500/20 text-slate-400 border border-slate-500/30"
-                          )}>
-                            {task.priority}
-                          </span>
-                        )}
-                        {task.assignee && (
-                          <span className={cn(
-                            "hidden lg:block ml-2 text-[10px] border px-2 py-0.5 rounded font-black uppercase tracking-widest",
-                            isForMe ? "bg-indigo-500/20 border-indigo-500/30 text-indigo-300" : "bg-white/5 border-white/10 text-slate-400"
-                          )}>
-                            To: {isForMe ? 'YOU' : task.assignee}
-                          </span>
-                        )}
-                        {task.assignedBy && (
-                          <span className="hidden xl:block ml-2 text-[10px] text-slate-500 border border-white/10 px-2 py-0.5 rounded bg-white/5 uppercase font-bold">
-                            By: {isByMe ? 'YOU' : task.assignedBy}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 sm:gap-4 ml-auto relative z-10">
-                        <span className="px-3 py-1 bg-white/5 rounded-lg text-[10px] font-black uppercase tracking-widest text-slate-300 border border-white/5 hidden sm:block">
-                          {task.status}
-                        </span>
-                        <button onClick={() => openEditTask(task.id)} className="p-2 text-slate-400 hover:text-indigo-400 transition-colors bg-white/5 rounded-lg">
-                          <Edit2 size={14} />
-                        </button>
-                        <button onClick={() => deleteTask(task.id)} className="p-2 text-slate-400 hover:text-red-400 transition-colors bg-white/5 rounded-lg">
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </div>
-                    );
-                  })
-                )}
               </motion.div>
             )}
 
@@ -552,22 +753,41 @@ export default function TodoSection() {
                 exit={{ opacity: 0, scale: 0.98 }}
                 className="p-2"
               >
-                <div className="flex justify-between items-center mb-6 font-black italic uppercase text-xl">THE CALENDAR</div>
+                <div className="flex justify-between items-center mb-6 font-black italic uppercase text-xl text-white">THE CALENDAR PROFILE</div>
                 <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">
                   {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => <div key={d}>{d}</div>)}
                 </div>
                 <div className="grid grid-cols-7 gap-2">
                   {Array.from({ length: 35 }).map((_, i) => {
                     const day = i - 4; // Mock alignment
-                    if (day <= 0 || day > 31) return <div key={i} className="h-24 bg-black/10 rounded-2xl border border-white/5" />;
+                    if (day <= 0 || day > 31) return <div key={i} className="h-32 bg-black/10 rounded-2xl border border-white/5 opacity-30" />;
                     const dateStr = `2026-05-${day.toString().padStart(2, '0')}`;
-                    const dayTasks = tasks.filter(t => t.date.startsWith(dateStr));
+                    const dayTasks = filteredTasks.filter(t => t.date.startsWith(dateStr));
                     return (
-                      <div key={i} className="h-24 p-2 bg-black/20 border border-white/10 rounded-2xl hover:bg-black/30 transition-all overflow-hidden flex flex-col">
-                        <span className="text-[10px] font-black text-slate-500">{day}</span>
-                        <div className="flex-1 space-y-1 overflow-hidden mt-1">
+                      <div key={i} className="h-32 p-2 bg-black/20 border border-white/10 rounded-2xl hover:bg-black/40 transition-all overflow-hidden flex flex-col group/day">
+                        <div className="flex justify-between items-center">
+                          <span className={cn(
+                            "text-[10px] font-black",
+                            dayTasks.length > 0 ? "text-indigo-400" : "text-slate-600"
+                          )}>{day}</span>
+                          {dayTasks.length > 0 && <div className="w-1 h-1 rounded-full bg-indigo-500 shadow-[0_0_5px_rgba(99,102,241,1)]" />}
+                        </div>
+                        <div className="flex-1 space-y-1 overflow-y-auto mt-2 custom-scrollbar">
                           {dayTasks.map(t => (
-                            <div key={t.id} className="text-[7px] font-black uppercase tracking-tighter truncate px-1 bg-indigo-500/20 text-indigo-400 rounded border border-indigo-500/20">
+                            <div 
+                              key={t.id} 
+                              onClick={() => {
+                                setEditingTaskId(t.id);
+                                openEditTask(t.id);
+                              }}
+                              className={cn(
+                                "text-[8px] font-black uppercase tracking-tighter truncate px-1.5 py-0.5 rounded border transition-all cursor-pointer",
+                                t.priority === 'urgent' ? "bg-rose-500/20 text-rose-400 border-rose-500/20 hover:bg-rose-500/30" :
+                                t.priority === 'high' ? "bg-orange-500/20 text-orange-400 border-orange-500/20 hover:bg-orange-500/30" :
+                                "bg-indigo-500/20 text-indigo-400 border-indigo-500/20 hover:bg-indigo-500/30",
+                                t.status === 'done' && "opacity-40 grayscale line-through"
+                              )}
+                            >
                               {t.title}
                             </div>
                           ))}
@@ -596,6 +816,65 @@ export default function TodoSection() {
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
           background: rgba(255,255,255,0.2);
+          border-radius: 10px;
+        }
+
+        .glow-line-orange::before, .glow-line-white::before, .glow-line-purple::before {
+          content: '';
+          position: absolute;
+          inset: -1px;
+          padding: 1.5px;
+          border-radius: inherit;
+          background: conic-gradient(from var(--border-angle), transparent 70%, var(--border-color) 100%);
+          -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          mask-composite: exclude;
+          animation: border-rotate 3s linear infinite;
+          pointer-events: none;
+          z-index: 1;
+        }
+
+        .glow-line-orange::after, .glow-line-white::after, .glow-line-purple::after {
+          content: '';
+          position: absolute;
+          inset: -4px;
+          border-radius: inherit;
+          background: var(--border-color);
+          filter: blur(12px);
+          opacity: 0.15;
+          z-index: 0;
+          pointer-events: none;
+        }
+
+        .glow-line-orange { --border-color: #fb923c; }
+        .glow-line-white { --border-color: #ffffff; }
+        .glow-line-purple { --border-color: #a855f7; }
+
+        @property --border-angle {
+          syntax: '<angle>';
+          initial-value: 0deg;
+          inherits: false;
+        }
+
+        @keyframes border-rotate {
+          to { --border-angle: 360deg; }
+        }
+
+        /* Fallback for browsers that don't support @property */
+        @supports not (background: paint(something)) {
+          .glow-line-orange::before, .glow-line-white::before, .glow-line-purple::before {
+             background: linear-gradient(90deg, transparent, var(--border-color), transparent);
+             animation: move-gradient 2s linear infinite;
+             inset: 0;
+             padding: 1px;
+             mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+             -webkit-mask-composite: destination-out;
+             mask-composite: exclude;
+          }
+        }
+
+        @keyframes move-gradient {
+          0% { background-position: -200% center; }
+          100% { background-position: 200% center; }
         }
       `}} />
     </div>
@@ -613,7 +892,7 @@ function KanbanColumn({ title, status, tasks, color, onDrop, onDelete, onEdit, o
   onAdd: () => void,
   defaultAvatar: string
 }) {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const columnTasks = tasks.filter(t => t.status === status);
   
   const handleDragOver = (e: React.DragEvent) => e.preventDefault();
@@ -640,50 +919,121 @@ function KanbanColumn({ title, status, tasks, color, onDrop, onDelete, onEdit, o
       <div className="flex-1 space-y-3">
         {columnTasks.map(task => {
           const isByMe = task.assignedById === user?.uid;
-          const isForMe = task.assigneeId === user?.uid;
+          const isForMe = task.assigneeIds?.includes(user?.uid || '');
+          const isAssignedToOthersByMe = isByMe && task.assigneeIds && (task.assigneeIds.length > 1 || !task.assigneeIds.includes(user?.uid || ''));
+          const isAssignedToMeByOthers = isForMe && !isByMe;
 
           return (
             <motion.div 
-              key={task.id} 
+              key={task.id}
               layoutId={task.id}
               draggable
               onDragStart={(e: any) => e.dataTransfer.setData('taskId', task.id)}
               className={cn(
-                "p-4 rounded-2xl border transition-all cursor-grab active:cursor-grabbing group relative overflow-hidden",
-                isForMe || isByMe ? "bg-white/[0.03] border-white/5 hover:bg-white/[0.06] hover:border-white/10" : "opacity-40 grayscale"
+                "p-4 rounded-3xl border transition-all cursor-grab active:cursor-grabbing group relative overflow-hidden",
+                isAssignedToMeByOthers ? "glow-line-orange border-orange-500/40 bg-gradient-to-br from-orange-500/5 to-transparent" : 
+                isAssignedToOthersByMe ? "glow-line-purple border-purple-500/40 bg-gradient-to-br from-purple-500/5 to-transparent" : "border-white/10",
+                "bg-[#0f172a]/70 backdrop-blur-xl hover:bg-[#0f172a]/90 hover:border-white/20 shadow-xl",
+                !(isForMe || isByMe) && "opacity-40 grayscale"
               )}
             >
               <div className="flex flex-col gap-3 relative z-10">
-                <div className="flex items-start justify-between gap-2">
-                  <span className={cn("text-xs font-bold text-slate-200 leading-tight", task.status === 'done' && "line-through opacity-50")}>
-                    {task.title}
+                {/* Top Row */}
+                <div className="flex items-start justify-between gap-3">
+                  <span className={cn(
+                    "text-base font-black text-white leading-none tracking-tight truncate", 
+                    task.status === 'done' && "opacity-50 line-through"
+                  )}>
+                    {task.title.toLowerCase()}
                   </span>
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={() => onEdit(task.id)} className="p-1 hover:text-indigo-400"><Edit2 size={12} /></button>
-                    <button onClick={() => onDelete(task.id)} className="p-1 hover:text-rose-400"><Trash2 size={12} /></button>
+                  <div className="flex items-center gap-2">
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {(isByMe || profile?.isAdmin) ? (
+                        <>
+                          <button onClick={() => onEdit(task.id)} className="p-1 hover:text-indigo-400 transition-colors"><Edit2 size={12} /></button>
+                          <button onClick={() => onDelete(task.id)} className="p-1 hover:text-rose-400 transition-colors"><Trash2 size={12} /></button>
+                        </>
+                      ) : (
+                        <button onClick={() => onEdit(task.id)} className="p-1 text-slate-500 hover:text-indigo-400 transition-colors"><Clock size={12} /></button>
+                      )}
+                    </div>
+                    <Clock size={16} className="text-slate-500/40" />
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <div className="flex -space-x-1">
-                    <div className="w-5 h-5 rounded-full border border-white/10 overflow-hidden bg-slate-800">
-                      <img src={task.assigneeAvatar || defaultAvatar} className="w-full h-full object-cover" />
+                {/* Info Pills Section */}
+                <div className="flex flex-wrap gap-2">
+                  {task.date && (
+                    <div className="bg-black/40 border border-white/5 rounded-lg py-1 px-2.5 flex items-center gap-2">
+                      <Clock size={10} className="text-indigo-400" />
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        {new Date(task.date).toLocaleDateString([], { month: 'short', day: 'numeric' })}, {new Date(task.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }).toUpperCase()}
+                      </span>
                     </div>
-                  </div>
-                  <div className={cn(
-                    "text-[8px] font-black uppercase px-2 py-0.5 rounded-full border",
-                    task.priority === 'urgent' ? "bg-rose-500/10 text-rose-400 border-rose-500/20" :
-                    task.priority === 'high' ? "bg-orange-500/10 text-orange-400 border-orange-500/20" :
-                    "bg-slate-500/10 text-slate-400 border-slate-500/20"
-                  )}>
-                    {task.priority || 'MED'}
-                  </div>
+                  )}
+                  {isAssignedToMeByOthers && task.assignedBy && (
+                    <div className="bg-black/40 border border-white/5 rounded-lg py-1 px-2.5 flex items-center gap-2">
+                      <User size={10} className="text-emerald-400" />
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        By: <span className="text-emerald-400">{(task.assignedBy || 'Unknown').split(' ')[0].toUpperCase()}</span>
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Bottom Row - Conditional */}
+                <div className={cn(
+                  "flex items-center justify-between",
+                  !isAssignedToMeByOthers && "pt-2 border-t border-white/5 mt-1"
+                )}>
+                  {!isAssignedToMeByOthers ? (
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-5 h-5 rounded-full border border-white/10 overflow-hidden bg-slate-800">
+                          <img 
+                            src={(task.assigneeAvatars && task.assigneeAvatars.length > 0) ? task.assigneeAvatars[0] : defaultAvatar} 
+                            className="w-full h-full object-cover" 
+                          />
+                        </div>
+                        <span className="text-[9px] font-black text-white uppercase tracking-widest truncate max-w-[60px]">
+                          {((isByMe ? (profile?.name || user?.email?.split('@')[0] || 'Me') : (task.assignedBy || 'Unknown').split(' ')[0]) || '').toUpperCase()}
+                        </span>
+                      </div>
+
+                      <div className={cn(
+                        "px-2 py-0.5 rounded-full border text-[8px] font-black uppercase tracking-widest",
+                        task.priority === 'urgent' ? "bg-rose-500/10 text-rose-500 border-rose-500/30 shadow-[0_0_10px_rgba(244,63,94,0.1)]" :
+                        task.priority === 'high' ? "bg-orange-500/10 text-orange-500 border-orange-500/30 shadow-[0_0_10px_rgba(249,115,22,0.1)]" :
+                        task.priority === 'medium' ? "bg-blue-500/10 text-blue-500 border-blue-500/30 shadow-[0_0_10px_rgba(59,130,246,0.1)]" :
+                        "bg-slate-500/10 text-slate-400 border-slate-500/30"
+                      )}>
+                        {task.priority || 'mid'}
+                      </div>
+                    </div>
+                  ) : (
+                    <div /> // Spacer if bottom-left is hidden
+                  )}
+                  
+                  {isAssignedToMeByOthers && (
+                    <div className={cn(
+                      "px-3 py-1 rounded-full border text-[9px] font-black uppercase tracking-widest shadow-lg",
+                      task.priority === 'urgent' ? "bg-rose-500/10 text-rose-500 border-rose-500/30" :
+                      task.priority === 'high' ? "bg-orange-500/10 text-orange-500 border-orange-500/30" :
+                      task.priority === 'medium' ? "bg-blue-500/10 text-blue-500 border-blue-500/30" :
+                      "bg-slate-500/10 text-slate-400 border-slate-500/30"
+                    )}>
+                      {task.priority || 'mid'}
+                    </div>
+                  )}
                 </div>
               </div>
+
+              {/* Holographic Overlays */}
+              <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-white/5 to-transparent blur-2xl pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity" />
             </motion.div>
           );
         })}
-      </div>
+    </div>
 
       <button onClick={onAdd} className="mt-4 py-3 bg-white/5 hover:bg-white/10 rounded-xl border border-dashed border-white/10 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-white transition-all flex items-center justify-center gap-2">
         <Plus size={14} /> Add Objective

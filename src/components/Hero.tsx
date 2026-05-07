@@ -5,7 +5,7 @@ import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestor
 import { db } from '../lib/firebase';
 import { Agent } from '../types';
 import AILoader from './AILoader';
-import { useAuth } from './AuthProvider';
+import { useAuth } from '@/components/AuthProvider';
 
 const availableImages = [
   '1.svg', '2.svg', '3.svg', '4.svg', '5.svg', '6.svg', '7.svg', '8.svg',

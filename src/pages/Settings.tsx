@@ -4,7 +4,7 @@ import { Shield, UserCog, Check, AlertCircle, Plus, Trash2, Mail } from 'lucide-
 import { collection, onSnapshot, doc, updateDoc, addDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { UserProfile, UserRole } from '../types';
-import { useAuth } from '../components/AuthProvider';
+import { useAuth } from '@/components/AuthProvider';
 import { Navigate } from 'react-router-dom';
 
 export default function Settings() {
@@ -73,11 +73,15 @@ export default function Settings() {
   };
 
   const handleRoleChange = async (uid: string, newRole: UserRole) => {
-    if (uid === profile.uid) return; // Cannot change own role here
+    if (uid === profile?.uid) return; // Cannot change own role here
     try {
-      await updateDoc(doc(db, 'users', uid), { role: newRole });
+      await updateDoc(doc(db, 'users', uid), { 
+        role: newRole,
+        isAdmin: newRole === 'admin'
+      });
     } catch (error) {
       console.error("Error updating role:", error);
+      handleFirestoreError(error, OperationType.UPDATE, `users/${uid}`);
     }
   };
 
