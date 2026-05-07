@@ -46,7 +46,11 @@ export default function Hero() {
 
   const getAgentImage = (agent: Agent | undefined) => {
     if (!agent) return availableImages[0];
-    if (agent.imageUrl) return agent.imageUrl;
+    if (agent.imageUrl) {
+      if (agent.imageUrl.startsWith('http')) return agent.imageUrl;
+      const filename = agent.imageUrl.split('/').pop()?.split('?')[0];
+      return `/images/${filename}`;
+    }
     // Basic deterministic hash
     const hash = String(agent.id || agent.name || "").split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     return availableImages[hash % availableImages.length];

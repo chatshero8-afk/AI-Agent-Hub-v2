@@ -58,6 +58,8 @@ export interface UserProfile {
   role: UserRole;
   isAdmin?: boolean;
   internshipEndDate?: string;
+  attendanceStreak?: number;
+  checkedInDates?: string[];
   department?: Department;
   target?: any;
   targets?: TargetItem[];

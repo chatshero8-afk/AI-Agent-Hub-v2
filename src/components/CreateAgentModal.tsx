@@ -7,10 +7,11 @@ import { db } from '../lib/firebase';
 import { useAuth } from './AuthProvider';
 import { DEPARTMENTS } from '../constants';
 import { playSuccessSound } from '../lib/sounds';
+import { cn } from '../lib/utils';
 
 const localImagesGlob = import.meta.glob('/public/images/*.{svg,png,jpg,jpeg,webp,avif,gif}', { eager: true, import: 'default' });
 const loadedImages = Object.values(localImagesGlob) as string[];
-const availableImages = loadedImages.length > 0 ? loadedImages.slice().sort((a, b) => {
+const availableImages = loadedImages.length > 0 ? loadedImages.slice().map(url => url.replace('public/', '')).sort((a, b) => {
   const numA = parseInt(a.match(/(\d+)\./)?.[1] || '0', 10);
   const numB = parseInt(b.match(/(\d+)\./)?.[1] || '0', 10);
   return numA - numB;
@@ -35,6 +36,7 @@ export default function CreateAgentModal({ isOpen, onClose, agentToEdit, existin
   const [allowedRoles, setAllowedRoles] = useState<UserRole[]>([]);
   const [allowedEmails, setAllowedEmails] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState<'idle' | 'submitting' | 'updated'>('idle');
 
   // Compute used images excluding the current agent (if editing)
   // We use the last part of the URL (the filename) to be robust against path changes
@@ -94,13 +96,26 @@ export default function CreateAgentModal({ isOpen, onClose, agentToEdit, existin
 
       if (agentToEdit?.id) {
         // Use setDoc with merge: true to handle mock agents that don't exist in Firestore yet
-        await setDoc(doc(db, 'agents', agentToEdit.id), {
+        const updateData: any = {
           ...payload,
-          // Maintain original owner info if it exists
           ownerId: agentToEdit.ownerId || user.uid,
           owner: agentToEdit.owner || profile?.name || user.displayName || 'ChatsHero Elite',
-          createdAt: agentToEdit.createdAt || serverTimestamp(),
-        }, { merge: true });
+        };
+        
+        if (agentToEdit.ownerId === 'system' || !agentToEdit.createdAt) {
+          updateData.createdAt = serverTimestamp();
+          updateData.ownerId = user.uid; // take ownership of mock agent
+        }
+
+        await setDoc(doc(db, 'agents', agentToEdit.id), updateData, { merge: true });
+
+        setSubmitStatus('updated');
+        setTimeout(() => {
+          onClose();
+          setSubmitStatus('idle');
+          setIsSubmitting(false);
+        }, 1000);
+        return;
       } else {
         await addDoc(collection(db, 'agents'), {
           ...payload,
@@ -192,7 +207,7 @@ export default function CreateAgentModal({ isOpen, onClose, agentToEdit, existin
                       className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/5 rounded-xl px-4 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 h-[46px]"
                     >
                       {DEPARTMENTS.map(d => (
-                        <option key={d.id} value={d.id}>{d.label.split(' ')[0]}</option>
+                        <option className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white" key={d.id} value={d.id}>{d.label.split(' ')[0]}</option>
                       ))}
                     </select>
                   </div>
@@ -272,10 +287,14 @@ export default function CreateAgentModal({ isOpen, onClose, agentToEdit, existin
                         <button
                           key={i}
                           type="button"
-                          onClick={() => setImageUrl(opt)}
-                          className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all ${
-                            imageUrl === opt ? 'border-primary ring-2 ring-primary/20 scale-95' : 'border-slate-200 dark:border-white/5 opacity-60 hover:opacity-100 hover:border-primary/50'
-                          } ${isUsed ? 'ring-2 ring-amber-500/30' : ''}`}
+                          disabled={isUsed}
+                          title={isUsed ? "This visual persona is already deployed to another Agent" : "Select this visual persona"}
+                          onClick={() => !isUsed && setImageUrl(opt)}
+                          className={cn(
+                            "relative aspect-square rounded-xl overflow-hidden border-2 transition-all",
+                            imageUrl === opt ? "border-primary ring-2 ring-primary/20 scale-95" : "border-slate-200 dark:border-white/5 opacity-60",
+                            isUsed ? "opacity-30 cursor-not-allowed grayscale border-slate-800" : "hover:opacity-100 hover:border-primary/50"
+                          )}
                         >
                           <img src={opt} alt={`Option ${i+1}`} className="w-full h-full object-contain p-2" referrerPolicy="no-referrer" />
                           {imageUrl === opt && (
@@ -284,8 +303,9 @@ export default function CreateAgentModal({ isOpen, onClose, agentToEdit, existin
                             </div>
                           )}
                           {isUsed && (
-                             <div className="absolute top-1 right-1">
-                                <div className="w-3 h-3 rounded-full bg-amber-500 shadow-sm" title="Already used by another agent" />
+                             <div className="absolute inset-0 bg-slate-950/50 flex flex-col items-center justify-center pointer-events-none">
+                                <Shield className="text-slate-400 mb-1" size={16} />
+                                <span className="text-[8px] font-black uppercase text-slate-300 tracking-widest px-1 text-center bg-slate-900/80 rounded block leading-tight">Taken</span>
                              </div>
                           )}
                         </button>
@@ -299,10 +319,19 @@ export default function CreateAgentModal({ isOpen, onClose, agentToEdit, existin
               <button 
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full py-4 bg-primary text-white rounded-2xl font-black uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-primary/30 flex items-center justify-center gap-2 disabled:opacity-50"
+                className={cn(
+                  "w-full py-4 text-white rounded-2xl font-black uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all shadow-lg flex items-center justify-center gap-2",
+                  submitStatus === 'updated' 
+                    ? "bg-emerald-500 shadow-emerald-500/30" 
+                    : "bg-primary shadow-primary/30 disabled:opacity-50"
+                )}
               >
-                {isSubmitting ? (agentToEdit ? 'Updating...' : 'Adding...') : (agentToEdit ? 'Update Agent' : 'Add Agent')}
-                <Plus size={18} />
+                {submitStatus === 'updated' 
+                  ? 'Updated!' 
+                  : isSubmitting 
+                    ? (agentToEdit ? 'Updating...' : 'Adding...') 
+                    : (agentToEdit ? 'Update Agent' : 'Add Agent')}
+                {submitStatus !== 'updated' && <Plus size={18} />}
               </button>
             </form>
           </motion.div>

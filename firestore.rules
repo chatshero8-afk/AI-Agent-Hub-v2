@@ -147,7 +147,7 @@ service cloud.firestore {
       allow update: if isEmailVerified() && isValidId(agentId) && (
         isAdmin() || (
           isOwner(existing().ownerId) &&
-          incoming().diff(existing()).affectedKeys().hasOnly(['name', 'description', 'tokensConsumed', 'powerLevel', 'popularity', 'imageUrl', 'visibility', 'externalLink', 'isDeleted', 'deletedAt', 'owner']) &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['name', 'description', 'tokensConsumed', 'powerLevel', 'popularity', 'imageUrl', 'avatar', 'role', 'department', 'visibility', 'externalLink', 'allowedRoles', 'allowedEmails', 'isDeleted', 'deletedAt', 'owner', 'ownerId', 'createdAt']) &&
           isValidAgent(incoming())
         )
       );

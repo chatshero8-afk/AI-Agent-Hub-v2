@@ -7,7 +7,7 @@ import { useAuth } from './AuthProvider';
 
 const localImagesGlob = import.meta.glob('/public/images/*.{svg,png,jpg,jpeg,webp,avif,gif}', { eager: true, import: 'default' });
 const loadedImages = Object.values(localImagesGlob) as string[];
-const availableImages = loadedImages.length > 0 ? loadedImages.slice().sort((a, b) => {
+const availableImages = loadedImages.length > 0 ? loadedImages.slice().map(url => url.replace('public/', '')).sort((a, b) => {
   const numA = parseInt(a.match(/(\d+)\./)?.[1] || '0', 10);
   const numB = parseInt(b.match(/(\d+)\./)?.[1] || '0', 10);
   return numA - numB;
@@ -78,7 +78,7 @@ export default function AgentCard({ agent, index, level, onRun, onEdit, onDelete
         {/* Card Main Image */}
         <div className="absolute inset-0 overflow-hidden z-0 border-none flex items-center justify-center">
           <img 
-            src={agent.imageUrl || selectedImage} 
+            src={(agent.imageUrl ? `/images/${agent.imageUrl.split('/').pop()?.split('?')[0]}` : null) || selectedImage} 
             alt="" 
             className={cn(
               "w-[85%] h-[85%] object-contain transition-transform duration-700 group-hover:scale-[1.05]",

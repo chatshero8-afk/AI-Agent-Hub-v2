@@ -47,9 +47,14 @@ export default function AgentInfoModal({ agent, isOpen, onClose, allAgents }: Ag
                   <motion.img 
                       initial={{ y: 20, opacity: 0 }}
                       animate={{ y: 0, opacity: 1 }}
-                      src={agent.imageUrl} 
+                      src={agent.imageUrl ? `/images/${agent.imageUrl.split('/').pop()?.split('?')[0]}` : undefined} 
                       alt={agent.name}
                       className="h-32 w-32 object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.3)] z-10"
+                      onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.onerror = null;
+                          target.src = '/images/1.svg';
+                      }}
                   />
                   
                   <button 
@@ -176,10 +181,18 @@ export default function AgentInfoModal({ agent, isOpen, onClose, allAgents }: Ag
                     </button>
                     <button 
                         onClick={() => {
+                            if (agent.externalLink) {
+                                window.open(agent.externalLink, '_blank', 'noopener,noreferrer');
+                            }
                             onClose();
-                            // If it's a normal agent, we could trigger run or chat here
                         }}
-                        className="flex-grow px-8 py-4 bg-primary text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:scale-[1.02] transition-all shadow-xl shadow-primary/30 flex items-center justify-center gap-2"
+                        className={cn(
+                            "flex-grow px-8 py-4 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 transition-all",
+                            agent.externalLink 
+                                ? "bg-primary text-white shadow-xl shadow-primary/30 hover:scale-[1.02]" 
+                                : "bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed"
+                        )}
+                        disabled={!agent.externalLink && !isMaster}
                     >
                         Initiate Link <Zap size={14} className="fill-current" />
                     </button>

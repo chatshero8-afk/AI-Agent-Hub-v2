@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Calendar as CalendarIcon, 
@@ -10,33 +10,71 @@ import {
   Clock,
   Trash2,
   Edit2,
-  X
+  X,
+  Search
 } from 'lucide-react';
 import { useAuth } from '../AuthProvider';
 import { cn } from '../../lib/utils';
+import { collection, onSnapshot } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
+import { UserProfile } from '../../types';
 
 type ViewMode = 'kanban' | 'calendar' | 'list';
 
-const initialTasks = [
-  { id: 1, title: 'Upgrade AI Model', status: 'todo', date: '2026-05-10', priority: 'high', assigneeAvatar: '/images/1.svg' },
-  { id: 2, title: 'Optimize Sales Agent', status: 'in-progress', date: '2026-05-08', priority: 'medium', assigneeAvatar: '/images/2.svg' },
-  { id: 3, title: 'Deploy New Layout', status: 'done', date: '2026-05-05', priority: 'high' },
-  { id: 4, title: 'Review Chat Logs', status: 'todo', date: '2026-05-12', priority: 'low' },
+type Task = {
+  id: number;
+  title: string;
+  status: string;
+  date: string;
+  priority?: string;
+  assigneeAvatar?: string;
+  assignee?: string;
+  assignedBy?: string;
+};
+
+const initialTasks: Task[] = [
+  { id: 1, title: 'Upgrade AI Model', status: 'todo', date: '2026-05-10T14:00', priority: 'high', assigneeAvatar: '/images/1.svg', assignee: 'Alice', assignedBy: 'Bob' },
+  { id: 2, title: 'Optimize Sales Agent', status: 'in-progress', date: '2026-05-08T09:30', priority: 'medium', assigneeAvatar: '/images/2.svg', assignee: 'Charlie' },
+  { id: 3, title: 'Deploy New Layout', status: 'done', date: '2026-05-05T16:00', priority: 'high', assignedBy: 'Alice' },
+  { id: 4, title: 'Review Chat Logs', status: 'todo', date: '2026-05-12T11:00', priority: 'low' },
 ];
 
 export default function TodoSection() {
   const { profile } = useAuth();
   const [view, setView] = useState<ViewMode>('kanban');
-  const [tasks, setTasks] = useState(initialTasks);
+  const [tasks, setTasks] = useState<Task[]>(initialTasks);
+  const [users, setUsers] = useState<UserProfile[]>([]);
+
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'users'), (snapshot) => {
+      const usersData = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile));
+      setUsers(usersData);
+    });
+    return () => unsub();
+  }, []);
   
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<number | null>(null);
-  const [modalFormData, setModalFormData] = useState({ title: '', status: 'todo', date: new Date().toISOString().split('T')[0], priority: 'medium' });
+  const [modalFormData, setModalFormData] = useState({ 
+    title: '', 
+    status: 'todo', 
+    date: new Date().toISOString().slice(0, 16), 
+    priority: 'medium',
+    assignedBy: '',
+    assignee: ''
+  });
 
   const openAddTask = (status: string) => {
     setEditingTask(null);
-    setModalFormData({ title: '', status, date: new Date().toISOString().split('T')[0], priority: 'medium' });
+    setModalFormData({ 
+      title: '', 
+      status, 
+      date: new Date().toISOString().slice(0, 16), 
+      priority: 'medium',
+      assignedBy: '',
+      assignee: ''
+    });
     setIsModalOpen(true);
   };
 
@@ -44,7 +82,14 @@ export default function TodoSection() {
     const task = tasks.find(t => t.id === id);
     if (task) {
       setEditingTask(id);
-      setModalFormData({ title: task.title, status: task.status, date: task.date, priority: task.priority || 'medium' });
+      setModalFormData({ 
+        title: task.title, 
+        status: task.status, 
+        date: task.date.length === 10 ? `${task.date}T12:00` : task.date, 
+        priority: task.priority || 'medium',
+        assignedBy: task.assignedBy || '',
+        assignee: task.assignee || ''
+      });
       setIsModalOpen(true);
     }
   };
@@ -54,10 +99,18 @@ export default function TodoSection() {
       alert('Task title is required');
       return;
     }
+    
+    // Find the selected user to get their avatar
+    const selectedAssignee = users.find(u => (u.name || u.email) === modalFormData.assignee);
+    const taskDataToSave = {
+      ...modalFormData,
+      assigneeAvatar: selectedAssignee ? selectedAssignee.avatar : undefined
+    };
+
     if (editingTask) {
-      setTasks(tasks.map(t => t.id === editingTask ? { ...t, ...modalFormData } : t));
+      setTasks(tasks.map(t => t.id === editingTask ? { ...t, ...taskDataToSave } : t));
     } else {
-      setTasks([...tasks, { id: Date.now(), ...modalFormData }]);
+      setTasks([...tasks, { id: Date.now(), ...taskDataToSave }]);
     }
     setIsModalOpen(false);
   };
@@ -122,21 +175,51 @@ export default function TodoSection() {
                         onChange={e => setModalFormData({...modalFormData, status: e.target.value})}
                         className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-white outline-none focus:border-indigo-500/50 appearance-none"
                       >
-                        <option value="todo">To Do</option>
-                        <option value="in-progress">In Progress</option>
-                        <option value="done">Completed</option>
+                        <option className="bg-[#151c2b] text-white" value="todo">To Do</option>
+                        <option className="bg-[#151c2b] text-white" value="in-progress">In Progress</option>
+                        <option className="bg-[#151c2b] text-white" value="in-review">In Review</option>
+                        <option className="bg-[#151c2b] text-white" value="done">Completed</option>
                       </select>
                     </div>
                     
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Due Date</label>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Due Date & Time</label>
                       <input 
-                        type="date" 
+                        type="datetime-local" 
                         value={modalFormData.date}
                         onChange={e => setModalFormData({...modalFormData, date: e.target.value})}
                         className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-slate-300 outline-none focus:border-indigo-500/50"
                         style={{ colorScheme: 'dark' }}
                       />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Assigned By (Optional)</label>
+                      <select 
+                        value={modalFormData.assignedBy}
+                        onChange={e => setModalFormData({...modalFormData, assignedBy: e.target.value})}
+                        className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-slate-300 outline-none focus:border-indigo-500/50 appearance-none"
+                      >
+                        <option className="bg-[#151c2b] text-white" value="">None</option>
+                        {users.map(u => (
+                          <option className="bg-[#151c2b] text-white" key={u.uid} value={u.name || u.email}>{u.name || u.email}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Assigned To (Optional)</label>
+                      <select 
+                        value={modalFormData.assignee}
+                        onChange={e => setModalFormData({...modalFormData, assignee: e.target.value})}
+                        className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-slate-300 outline-none focus:border-indigo-500/50 appearance-none"
+                      >
+                        <option className="bg-[#151c2b] text-white" value="">None</option>
+                        {users.map(u => (
+                          <option className="bg-[#151c2b] text-white" key={u.uid} value={u.name || u.email}>{u.name || u.email}</option>
+                        ))}
+                      </select>
                     </div>
                   </div>
 
@@ -232,7 +315,7 @@ export default function TodoSection() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.98 }}
-                className="flex flex-col md:flex-row gap-6 h-full items-start"
+                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 h-full items-start"
               >
                 <KanbanColumn 
                   title="TO DO" 
@@ -257,6 +340,17 @@ export default function TodoSection() {
                   defaultAvatar={profile?.avatar || "/images/8.svg"}
                 />
                 <KanbanColumn 
+                  title="IN REVIEW" 
+                  status="in-review" 
+                  tasks={tasks} 
+                  color="bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.5)]" 
+                  onDrop={moveTask} 
+                  onDelete={deleteTask}
+                  onEdit={openEditTask}
+                  onAdd={() => openAddTask('in-review')}
+                  defaultAvatar={profile?.avatar || "/images/8.svg"}
+                />
+                <KanbanColumn 
                   title="COMPLETED" 
                   status="done" 
                   tasks={tasks} 
@@ -276,7 +370,7 @@ export default function TodoSection() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.98 }}
-                className="space-y-3 p-2"
+                className="space-y-2 p-2"
               >
                 <div className="flex justify-between items-center mb-6">
                   <h3 className="text-xl font-black text-white uppercase tracking-tighter drop-shadow-md">ALL TASKS</h3>
@@ -289,13 +383,28 @@ export default function TodoSection() {
                     No Tasks
                   </div>
                 ) : (
-                  tasks.map(task => (
-                    <div key={task.id} className="flex items-center justify-between p-4 bg-black/20 rounded-2xl border border-white/5 hover:border-indigo-500/40 hover:bg-black/40 transition-all group shadow-sm backdrop-blur-md">
-                      <div className="flex items-center gap-4 cursor-pointer" onClick={() => moveTask(task.id, task.status === 'done' ? 'todo' : 'done')}>
+                  tasks.map(task => {
+                    const isAssignedToOther = task.assignee && profile && task.assignee !== profile.name && task.assignee !== profile.email;
+                    return (
+                    <div key={task.id} className={cn(
+                      "flex items-center justify-between p-4 rounded-2xl transition-all group shadow-sm backdrop-blur-md relative overflow-hidden",
+                      isAssignedToOther ? "border-transparent" : "bg-black/20 border border-white/5 hover:border-indigo-500/40 hover:bg-black/40"
+                    )}>
+                      {isAssignedToOther && (
+                        <>
+                          <div className="absolute inset-0 z-0 bg-[#0f172a] pointer-events-none" />
+                          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200%] h-[200%] bg-[conic-gradient(from_0deg,transparent_0_340deg,#a855f7_360deg)] animate-[spin_3s_linear_infinite] z-0 pointer-events-none" />
+                          <div className="absolute inset-[1px] bg-[#1e293b]/90 backdrop-blur-3xl rounded-[16px] z-0 pointer-events-none shadow-[inset_0_0_15px_rgba(168,85,247,0.2)]" />
+                        </>
+                      )}
+                      
+                      <div className="flex items-center gap-4 cursor-pointer relative z-10 flex-1" onClick={() => moveTask(task.id, task.status === 'done' ? 'todo' : 'done')}>
                         {task.status === 'done' ? (
                           <CheckCircle className="text-emerald-400 shadow-emerald-400/50 drop-shadow-[0_0_8px_rgba(52,211,153,0.8)] shrink-0" size={20} />
                         ) : task.status === 'in-progress' ? (
                           <Clock className="text-blue-400 shadow-blue-400/50 drop-shadow-[0_0_8px_rgba(96,165,250,0.8)] shrink-0" size={20} />
+                        ) : task.status === 'in-review' ? (
+                          <Search className="text-amber-400 shadow-amber-400/50 drop-shadow-[0_0_8px_rgba(251,191,36,0.8)] shrink-0" size={20} />
                         ) : (
                           <Circle className="text-slate-400 group-hover:text-slate-300 shrink-0" size={20} />
                         )}
@@ -316,12 +425,22 @@ export default function TodoSection() {
                             {task.priority}
                           </span>
                         )}
+                        {task.assignee && (
+                          <span className="hidden lg:block ml-2 text-xs text-slate-400 border border-white/10 px-2 py-0.5 rounded bg-white/5">
+                            To: {task.assignee}
+                          </span>
+                        )}
+                        {task.assignedBy && (
+                          <span className="hidden xl:block ml-2 text-xs text-slate-400 border border-white/10 px-2 py-0.5 rounded bg-white/5">
+                            By: {task.assignedBy}
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-2 sm:gap-4 ml-auto">
                         <span className="px-3 py-1 bg-white/5 rounded-lg text-xs font-bold uppercase tracking-widest text-slate-300 border border-white/5 hidden sm:block">
                           {task.status}
                         </span>
-                        <span className="text-xs font-bold uppercase tracking-widest text-slate-400 hidden lg:block">{task.date}</span>
+                        <span className="text-xs font-bold uppercase tracking-widest text-slate-400 hidden lg:block">{task.date.replace('T', ' ')}</span>
                         <button onClick={() => openEditTask(task.id)} className="p-2 text-slate-400 hover:text-indigo-400 transition-colors bg-white/5 rounded-lg opacity-100 lg:opacity-0 group-hover:opacity-100">
                           <Edit2 size={14} />
                         </button>
@@ -330,7 +449,8 @@ export default function TodoSection() {
                         </button>
                       </div>
                     </div>
-                  ))
+                  );
+                })
                 )}
               </motion.div>
             )}
@@ -362,7 +482,7 @@ export default function TodoSection() {
                   {Array.from({ length: 31 }).map((_, i) => {
                     const day = i + 1;
                     const dateStr = `2026-05-${day.toString().padStart(2, '0')}`;
-                    const dayTasks = tasks.filter(t => t.date === dateStr);
+                    const dayTasks = tasks.filter(t => t.date.startsWith(dateStr));
                     
                     return (
                       <div key={day} className="h-28 p-2 rounded-2xl border border-white/10 bg-black/20 backdrop-blur-md hover:border-purple-500/40 hover:bg-black/30 transition-all relative group shadow-sm flex flex-col">
@@ -424,6 +544,7 @@ function KanbanColumn({ title, status, tasks, color, onDrop, onDelete, onEdit, o
   onAdd: () => void,
   defaultAvatar: string
 }) {
+  const { profile } = useAuth();
   const columnTasks = tasks.filter(t => t.status === status);
   
   const handleDragOver = (e: React.DragEvent) => {
@@ -454,16 +575,28 @@ function KanbanColumn({ title, status, tasks, color, onDrop, onDelete, onEdit, o
         </span>
       </div>
       
-      <div className="flex-1 space-y-3 min-h-[300px]">
-        {columnTasks.map(task => (
+      <div className="flex-1 space-y-2 min-h-[300px]">
+        {columnTasks.map(task => {
+          const isAssignedToOther = task.assignee && profile && task.assignee !== profile.name && task.assignee !== profile.email;
+          return (
           <div 
             key={task.id} 
             draggable
             onDragStart={(e) => {
               e.dataTransfer.setData('taskId', task.id.toString());
             }}
-            className="p-4 bg-white/[0.03] backdrop-blur-sm rounded-[1.2rem] cursor-grab active:cursor-grabbing hover:bg-white/[0.06] border border-white/5 hover:border-white/10 transition-all group shadow-[0_4px_12px_rgba(0,0,0,0.2)] relative"
+            className={cn(
+              "p-4 rounded-[1.2rem] cursor-grab active:cursor-grabbing transition-all group shadow-[0_4px_12px_rgba(0,0,0,0.2)] relative overflow-hidden",
+              isAssignedToOther ? "border border-transparent" : "bg-white/[0.03] backdrop-blur-sm hover:bg-white/[0.06] border border-white/5 hover:border-white/10"
+            )}
           >
+            {isAssignedToOther && (
+              <>
+                <div className="absolute inset-0 z-0 bg-[#0f172a] pointer-events-none" />
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200%] h-[200%] bg-[conic-gradient(from_0deg,transparent_0_340deg,#a855f7_360deg)] animate-[spin_3s_linear_infinite] z-0 pointer-events-none" />
+                <div className="absolute inset-[1px] bg-[#1e293b]/90 backdrop-blur-3xl rounded-[1.2rem] z-0 pointer-events-none shadow-[inset_0_0_15px_rgba(168,85,247,0.2)]" />
+              </>
+            )}
             <div className="flex items-start justify-between gap-3 relative z-10 w-full pr-10 pb-2">
               <span 
                 className={cn(
@@ -477,8 +610,12 @@ function KanbanColumn({ title, status, tasks, color, onDrop, onDelete, onEdit, o
             
             <div className="flex flex-col gap-2 mt-2">
               <div className="flex items-center justify-between">
-                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-1.5 opacity-60">
-                  <CalendarIcon size={12} /> {task.date.substring(5)}
+                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500 flex flex-col gap-1.5 opacity-60">
+                  <div className="flex items-center gap-1.5">
+                    <CalendarIcon size={12} /> {task.date.replace('T', ' ')}
+                  </div>
+                  {task.assignedBy && <div className="text-white/70">By: {task.assignedBy}</div>}
+                  {task.assignee && <div className="text-white/70">To: {task.assignee}</div>}
                 </div>
                 {/* Profile Photo */}
                 <div className="w-6 h-6 rounded-full overflow-hidden border border-white/10 shadow-sm shrink-0">
@@ -510,7 +647,8 @@ function KanbanColumn({ title, status, tasks, color, onDrop, onDelete, onEdit, o
             </div>
             
           </div>
-        ))}
+          );
+        })}
         {columnTasks.length === 0 && (
           <div className="h-full min-h-[100px] border-2 border-dashed border-white/10 rounded-[1.2rem] flex items-center justify-center text-xs font-bold text-slate-500 uppercase tracking-widest pointer-events-none bg-black/10">
             Drop Here

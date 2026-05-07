@@ -56,8 +56,8 @@ export default function Layout({ children, activeTab, onTabChange }: LayoutProps
   if (!isRestricted) {
     navItems.push({ id: 'analytics',  label: 'Dashboard',  icon: BarChart3,     path: '/analytics' });
     navItems.push({ id: 'sales',      label: 'Sales',      icon: ClipboardList, path: '/sales' });
-    navItems.push({ id: 'profile',    label: 'Profile',    icon: User,          path: '/profile' });
   }
+  navItems.push({ id: 'profile',    label: 'Profile',    icon: User,          path: '/profile' });
 
   if (profile?.role === 'admin') {
     navItems.push({ id: 'settings', label: 'Settings',  icon: Shield,         path: '/settings' });

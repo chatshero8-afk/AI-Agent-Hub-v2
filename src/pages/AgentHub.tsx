@@ -251,7 +251,7 @@ export default function AgentHub() {
             >
               {isTrashView ? <ArchiveRestore size={20} /> : <Trash2 size={20} />}
             </button>
-            {!isTrashView && (
+            {!isTrashView && profile?.role !== 'Intern IT' && profile?.role !== 'Intern Graphic' && (
               <button 
                 onClick={() => setShowCreateModal(true)}
                 className="flex items-center gap-2 px-5 py-3 bg-primary text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:scale-105 transition-all shadow-lg shadow-primary/30 ai-pulse"
@@ -322,18 +322,8 @@ export default function AgentHub() {
                   }
                   onRun={(agent) => {
                     playWinningSound();
-                    if (agent.id === 'master-archivist') {
-                      setInfoAgent(agent);
-                      setShowInfoModal(true);
-                      return;
-                    }
-                    if (agent.externalLink) {
-                      window.open(agent.externalLink, '_blank', 'noopener,noreferrer');
-                    } else {
-                      // fallback to info if no link
-                      setInfoAgent(agent);
-                      setShowInfoModal(true);
-                    }
+                    setInfoAgent(agent);
+                    setShowInfoModal(true);
                   }}
                   onEdit={(agent) => {
                     setEditingAgent(agent);

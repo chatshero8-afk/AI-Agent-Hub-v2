@@ -89,7 +89,7 @@ function AuthenticatedApp() {
         <Routes>
           <Route path="/hub"        element={<AgentHub />} />
           <Route path="/sales"      element={isRestricted ? <Navigate to="/hub" /> : <Sales />} />
-          <Route path="/profile"    element={isRestricted ? <Navigate to="/hub" /> : <Profile />} />
+          <Route path="/profile"    element={<Profile />} />
           <Route path="/analytics"  element={isRestricted ? <Navigate to="/hub" /> : <Analytics />} />
           <Route path="/workspace"  element={isRestricted ? <Navigate to="/hub" /> : <StaffWorkspace />} />
           <Route path="/settings"   element={<Settings />} />

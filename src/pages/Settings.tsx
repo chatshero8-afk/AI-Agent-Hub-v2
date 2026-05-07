@@ -89,6 +89,14 @@ export default function Settings() {
     }
   };
 
+  const handleUpdateAttendanceStreak = async (uid: string, streak: number) => {
+    try {
+      await updateDoc(doc(db, 'users', uid), { attendanceStreak: streak });
+    } catch (error) {
+      console.error("Error updating attendance streak:", error);
+    }
+  };
+
   // Auto-remove interns if period arrived
   useEffect(() => {
     if (loading || !users.length) return;
@@ -186,13 +194,13 @@ export default function Settings() {
                               onChange={(e) => handleRoleChange(u.uid, e.target.value as UserRole)}
                               className="bg-slate-100 dark:bg-slate-800 border-none text-xs font-bold rounded-lg px-3 py-2 text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-primary/50"
                             >
-                              <option value="pending">Pending</option>
-                              <option value="Intern IT">Intern IT</option>
-                              <option value="Intern Graphic">Intern Graphic</option>
-                              <option value="Junior IT">Junior IT</option>
-                              <option value="Senior IT">Senior IT</option>
-                              <option value="Private">Private</option>
-                              <option value="admin">Admin</option>
+                              <option className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white" value="pending">Pending</option>
+                              <option className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white" value="Intern IT">Intern IT</option>
+                              <option className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white" value="Intern Graphic">Intern Graphic</option>
+                              <option className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white" value="Junior IT">Junior IT</option>
+                              <option className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white" value="Senior IT">Senior IT</option>
+                              <option className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white" value="Private">Private</option>
+                              <option className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white" value="admin">Admin</option>
                             </select>
                             {(u.role === 'Intern IT' || u.role === 'Intern Graphic') && (
                               <div className="flex items-center gap-2">
@@ -205,6 +213,16 @@ export default function Settings() {
                                  />
                               </div>
                             )}
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] text-slate-400 font-bold uppercase" title="Streak months">Bonus Streak:</span>
+                              <input 
+                                type="number" 
+                                min="0"
+                                value={u.attendanceStreak || 0} 
+                                onChange={(e) => handleUpdateAttendanceStreak(u.uid, parseInt(e.target.value) || 0)}
+                                className="w-16 bg-slate-100 dark:bg-slate-800 border-none text-xs font-bold rounded-lg px-2 py-1 text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-primary/50 text-right"
+                              />
+                            </div>
                           </div>
                         ) : (
                           <div className="text-right text-xs text-slate-400 italic">No Actions</div>

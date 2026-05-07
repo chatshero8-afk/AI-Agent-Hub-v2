@@ -6,7 +6,7 @@ export default function Sales() {
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="w-full h-[calc(100vh-140px)] rounded-[2rem] overflow-hidden border border-slate-200 dark:border-white/10 shadow-xl"
+      className="w-full h-[calc(100vh-64px)] overflow-hidden"
     >
       <iframe 
         src="https://chatshero-dashboard.web.app/" 
