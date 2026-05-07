@@ -9,13 +9,13 @@ import { DEPARTMENTS } from '../constants';
 import { playSuccessSound } from '../lib/sounds';
 import { cn } from '../lib/utils';
 
-const localImagesGlob = import.meta.glob('/public/images/*.{svg,png,jpg,jpeg,webp,avif,gif}', { eager: true, import: 'default' });
-const loadedImages = Object.values(localImagesGlob) as string[];
-const availableImages = loadedImages.length > 0 ? loadedImages.slice().map(url => url.replace('public/', '')).sort((a, b) => {
-  const numA = parseInt(a.match(/(\d+)\./)?.[1] || '0', 10);
-  const numB = parseInt(b.match(/(\d+)\./)?.[1] || '0', 10);
-  return numA - numB;
-}) : ['https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?auto=format&fit=crop&q=80&w=2000'];
+const availableImages = [
+  '1.svg', '2.svg', '3.svg', '4.svg', '5.svg', '6.svg', '7.svg', '8.svg',
+  '11.svg', '12.svg', '13.svg', '14.svg', '15.svg', '16.svg', '17.svg', '18.svg', '19.svg', '20.svg',
+  '21.svg', '22.svg', '23.svg', '24.svg', '25.svg', '27.svg', '28.svg', '29.svg', '30.svg',
+  '31.svg', '32.svg', '33.svg', '34.svg', '37.svg', '38.svg', '39.svg', '40.svg',
+  '41.svg', '42.svg', '43.svg'
+];
 
 interface CreateAgentModalProps {
   isOpen: boolean;
@@ -39,13 +39,17 @@ export default function CreateAgentModal({ isOpen, onClose, agentToEdit, existin
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'submitting' | 'updated'>('idle');
 
   // Compute used images excluding the current agent (if editing)
-  // We use the last part of the URL (the filename) to be robust against path changes
-  const getFilename = (url: string) => url ? url.split('/').pop()?.split('?')[0] : null;
+  const getFilename = (url: string) => {
+    if (!url) return '';
+    if (url.startsWith('http')) return url;
+    return url.split('/').pop()?.split('?')[0] || '';
+  };
+
   const usedImages = new Set<string>(
     existingAgents
       .filter(a => a.id !== agentToEdit?.id)
-      .map(a => a.imageUrl ? getFilename(a.imageUrl) as string : '')
-      .filter(filename => !!filename)
+      .map(a => getFilename(a.imageUrl || ''))
+      .filter(filename => !!filename && !filename.startsWith('http'))
   );
 
   React.useEffect(() => {
@@ -55,7 +59,7 @@ export default function CreateAgentModal({ isOpen, onClose, agentToEdit, existin
       setDepartment((agentToEdit.department as Department) || 'IT');
       setDescription(agentToEdit.description || '');
       setExternalLink(agentToEdit.externalLink || '');
-      setImageUrl(agentToEdit.imageUrl || '');
+      setImageUrl(getFilename(agentToEdit.imageUrl || ''));
       setVisibility(agentToEdit.visibility || 'public');
       setAllowedRoles(agentToEdit.allowedRoles || []);
       setAllowedEmails(agentToEdit.allowedEmails?.join(', ') || '');
@@ -79,36 +83,45 @@ export default function CreateAgentModal({ isOpen, onClose, agentToEdit, existin
 
     setIsSubmitting(true);
     try {
+      let finalImageUrl = getFilename(imageUrl);
+      
+      // If no image selected, pick the first available and NOT used one
+      if (!finalImageUrl) {
+        const unused = availableImages.find(img => !usedImages.has(img)) || availableImages[0];
+        finalImageUrl = unused;
+      }
+
       const finalDescription = description || `A professional ${role} in the ${department} department, dedicated to excellence and innovation within the ChatsHero ecosystem.`;
       
-      const payload = {
-        name,
-        role,
+      const payload: any = {
+        name: name.trim(),
+        role: role.trim(),
         department,
         description: finalDescription,
         avatar: '🤖',
-        externalLink,
-        imageUrl,
+        externalLink: externalLink.trim(),
+        imageUrl: finalImageUrl,
         visibility,
         allowedRoles,
         allowedEmails: allowedEmails.split(',').map(e => e.trim()).filter(Boolean),
+        isDeleted: false,
       };
 
       if (agentToEdit?.id) {
-        // Use setDoc with merge: true to handle mock agents that don't exist in Firestore yet
         const updateData: any = {
           ...payload,
           ownerId: agentToEdit.ownerId || user.uid,
           owner: agentToEdit.owner || profile?.name || user.displayName || 'ChatsHero Elite',
+          createdAt: agentToEdit.createdAt || serverTimestamp(),
         };
         
-        if (agentToEdit.ownerId === 'system' || !agentToEdit.createdAt) {
-          updateData.createdAt = serverTimestamp();
+        if (agentToEdit.ownerId === 'system') {
           updateData.ownerId = user.uid; // take ownership of mock agent
         }
 
         await setDoc(doc(db, 'agents', agentToEdit.id), updateData, { merge: true });
-
+        
+        playSuccessSound();
         setSubmitStatus('updated');
         setTimeout(() => {
           onClose();
@@ -296,7 +309,7 @@ export default function CreateAgentModal({ isOpen, onClose, agentToEdit, existin
                             isUsed ? "opacity-30 cursor-not-allowed grayscale border-slate-800" : "hover:opacity-100 hover:border-primary/50"
                           )}
                         >
-                          <img src={opt} alt={`Option ${i+1}`} className="w-full h-full object-contain p-2" referrerPolicy="no-referrer" />
+                          <img src={`/images/${opt}`} alt={`Option ${i+1}`} className="w-full h-full object-contain p-2" referrerPolicy="no-referrer" />
                           {imageUrl === opt && (
                             <div className="absolute inset-0 bg-primary/20 flex items-center justify-center pointer-events-none">
                               <Sparkles className="text-primary" size={20} />

@@ -47,7 +47,7 @@ export default function AgentInfoModal({ agent, isOpen, onClose, allAgents }: Ag
                   <motion.img 
                       initial={{ y: 20, opacity: 0 }}
                       animate={{ y: 0, opacity: 1 }}
-                      src={agent.imageUrl ? `/images/${agent.imageUrl.split('/').pop()?.split('?')[0]}` : undefined} 
+                      src={agent.imageUrl ? (agent.imageUrl.startsWith('http') ? agent.imageUrl : `/images/${agent.imageUrl.split('/').pop()?.split('?')[0]}`) : undefined} 
                       alt={agent.name}
                       className="h-32 w-32 object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.3)] z-10"
                       onError={(e) => {
@@ -140,9 +140,14 @@ export default function AgentInfoModal({ agent, isOpen, onClose, allAgents }: Ag
                                                 <td className="px-6 py-4">
                                                     <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-primary/20 bg-slate-100 dark:bg-white/5 group-hover:scale-110 transition-all shadow-md">
                                                         <img 
-                                                            src={a.imageUrl} 
+                                                            src={a.imageUrl ? (a.imageUrl.startsWith('http') ? a.imageUrl : `/images/${a.imageUrl.split('/').pop()?.split('?')[0]}`) : '/images/1.svg'} 
                                                             alt="" 
-                                                            className="w-full h-full object-cover" 
+                                                            className="w-full h-full object-cover"
+                                                            onError={(e) => {
+                                                              const target = e.target as HTMLImageElement;
+                                                              target.onerror = null;
+                                                              target.src = '/images/1.svg';
+                                                            }}
                                                         />
                                                     </div>
                                                 </td>

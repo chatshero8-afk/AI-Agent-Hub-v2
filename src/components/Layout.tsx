@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Sun, Moon, LayoutGrid, BarChart3, Menu, X, LogOut, User, Shield, LayoutTemplate, ClipboardList } from 'lucide-react';
+import { Sun, Moon, LayoutGrid, BarChart3, Menu, X, LogOut, User, Shield, LayoutTemplate, ClipboardList, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -105,6 +105,16 @@ export default function Layout({ children, activeTab, onTabChange }: LayoutProps
                     {item.label}
                   </button>
                 ))}
+
+                <div className="h-4 w-px bg-slate-200 dark:bg-white/10 mx-2" />
+
+                <button
+                  onClick={() => window.location.reload()}
+                  className="p-2 rounded-full bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all shadow-sm active:scale-95 group"
+                  title="Clear Cache & Sync"
+                >
+                  <RefreshCw size={18} className="group-active:rotate-180 transition-transform duration-500" />
+                </button>
 
                 <div className="h-4 w-px bg-slate-200 dark:bg-white/10 mx-2" />
 

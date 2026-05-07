@@ -67,13 +67,19 @@ service cloud.firestore {
       let requiredFields = ['name', 'role', 'department', 'avatar', 'ownerId', 'createdAt'];
       let allAllowedFields = ['id', 'name', 'role', 'department', 'avatar', 'ownerId', 'createdAt', 'description', 'owner', 'tokensConsumed', 'powerLevel', 'popularity', 'visibility', 'externalLink', 'imageUrl', 'allowedRoles', 'allowedEmails', 'isDeleted', 'deletedAt'];
       return data.keys().hasAll(requiredFields)
-        && data.keys().size() <= allAllowedFields.size()
-        && data.name is string && data.name.size() <= 100
-        && data.role is string && data.role.size() <= 100
-        && data.department is string && data.department.size() <= 100
+        && data.keys().size() <= 30
+        && data.name is string && data.name.size() <= 250
+        && data.role is string && data.role.size() <= 600
+        && data.department is string && data.department.size() <= 150
         && data.avatar is string && data.avatar.size() <= 2000
         && data.ownerId == request.auth.uid
-        && (data.createdAt == request.time || data.createdAt == existing().createdAt);
+        && (data.createdAt == request.time || data.createdAt == existing().createdAt)
+        && (!('description' in data) || (data.description is string && data.description.size() <= 10000))
+        && (!('externalLink' in data) || (data.externalLink is string && data.externalLink.size() <= 2000))
+        && (!('imageUrl' in data) || (data.imageUrl == null || (data.imageUrl is string && data.imageUrl.size() <= 1000)))
+        && (!('visibility' in data) || (data.visibility in ['public', 'private']))
+        && (!('allowedRoles' in data) || (data.allowedRoles is list))
+        && (!('allowedEmails' in data) || (data.allowedEmails is list));
     }
 
     function isValidWidget(data) {
@@ -113,6 +119,31 @@ service cloud.firestore {
         && data.addedAt == request.time;
     }
 
+    function isValidTask(data) {
+      let requiredFields = ['title', 'status', 'date', 'priority', 'assigneeId', 'assignedById', 'createdAt'];
+      return data.keys().hasAll(requiredFields)
+        && data.title is string && data.title.size() <= 200
+        && data.status in ['todo', 'in-progress', 'in-review', 'done']
+        && data.date is string && data.date.size() <= 64
+        && data.priority in ['low', 'medium', 'high', 'urgent']
+        && (data.assigneeId == '' || isValidId(data.assigneeId))
+        && isValidId(data.assignedById)
+        && (data.createdAt == request.time || data.createdAt == existing().createdAt)
+        && (!('updatedAt' in data) || data.updatedAt == request.time || data.updatedAt == existing().updatedAt);
+    }
+
+    function isValidNotification(data) {
+      let requiredFields = ['userId', 'senderId', 'title', 'message', 'type', 'read', 'createdAt'];
+      return data.keys().hasAll(requiredFields)
+        && isValidId(data.userId)
+        && isValidId(data.senderId)
+        && data.title is string && data.title.size() <= 200
+        && data.message is string && data.message.size() <= 1000
+        && data.type in ['task_assigned', 'task_progress', 'task_correction', 'info']
+        && data.read is bool
+        && data.createdAt == request.time;
+    }
+
     // --- Collections ---
 
     match /users/{userId} {
@@ -127,6 +158,33 @@ service cloud.firestore {
         )
       );
       allow delete: if isAdmin();
+    }
+
+    match /tasks/{taskId} {
+      allow read: if isSignedIn() && (
+        resource.data.assigneeId == request.auth.uid || 
+        resource.data.assignedById == request.auth.uid ||
+        isAdmin()
+      );
+      allow create: if isEmailVerified() && isValidTask(incoming()) && incoming().assignedById == request.auth.uid;
+      allow update: if isEmailVerified() && isValidId(taskId) && (
+        isAdmin() || (
+          (existing().assignedById == request.auth.uid || existing().assigneeId == request.auth.uid) &&
+          isValidTask(incoming()) &&
+          incoming().assignedById == existing().assignedById &&
+          incoming().createdAt == existing().createdAt
+        )
+      );
+      allow delete: if isEmailVerified() && (isAdmin() || existing().assignedById == request.auth.uid);
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow create: if isEmailVerified() && isValidNotification(incoming()) && incoming().senderId == request.auth.uid;
+      allow update: if isEmailVerified() && isOwner(existing().userId) && 
+        incoming().diff(existing()).affectedKeys().hasOnly(['read']) &&
+        incoming().read is bool;
+      allow delete: if isEmailVerified() && (isOwner(existing().userId) || isAdmin());
     }
 
     match /admins/{adminId} {

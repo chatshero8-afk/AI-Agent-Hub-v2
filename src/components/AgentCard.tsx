@@ -5,13 +5,13 @@ import { Shield, Zap, TrendingUp, User, ExternalLink, Pencil, Trash, ArchiveRest
 import { cn } from '@/lib/utils';
 import { useAuth } from './AuthProvider';
 
-const localImagesGlob = import.meta.glob('/public/images/*.{svg,png,jpg,jpeg,webp,avif,gif}', { eager: true, import: 'default' });
-const loadedImages = Object.values(localImagesGlob) as string[];
-const availableImages = loadedImages.length > 0 ? loadedImages.slice().map(url => url.replace('public/', '')).sort((a, b) => {
-  const numA = parseInt(a.match(/(\d+)\./)?.[1] || '0', 10);
-  const numB = parseInt(b.match(/(\d+)\./)?.[1] || '0', 10);
-  return numA - numB;
-}) : ['https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?auto=format&fit=crop&q=80&w=2000'];
+const availableImages = [
+  '1.svg', '2.svg', '3.svg', '4.svg', '5.svg', '6.svg', '7.svg', '8.svg',
+  '11.svg', '12.svg', '13.svg', '14.svg', '15.svg', '16.svg', '17.svg', '18.svg', '19.svg', '20.svg',
+  '21.svg', '22.svg', '23.svg', '24.svg', '25.svg', '27.svg', '28.svg', '29.svg', '30.svg',
+  '31.svg', '32.svg', '33.svg', '34.svg', '37.svg', '38.svg', '39.svg', '40.svg',
+  '41.svg', '42.svg', '43.svg'
+];
 
 export interface AgentCardProps {
   agent: Agent;
@@ -47,7 +47,17 @@ export default function AgentCard({ agent, index, level, onRun, onEdit, onDelete
     return true;
   };
 
-  const selectedImage = availableImages[index % availableImages.length];
+  const getImageUrl = () => {
+    if (agent.imageUrl) {
+      if (agent.imageUrl.startsWith('http')) return agent.imageUrl;
+      const filename = agent.imageUrl.split('/').pop()?.split('?')[0];
+      return `/images/${filename}`;
+    }
+    // Basic deterministic hash from ID
+    const hash = String(agent.id || agent.name || "").split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const defaultFilename = availableImages[hash % availableImages.length];
+    return `/images/${defaultFilename}`;
+  };
 
   const isMaster = agent.id === 'master-archivist';
 
@@ -78,7 +88,7 @@ export default function AgentCard({ agent, index, level, onRun, onEdit, onDelete
         {/* Card Main Image */}
         <div className="absolute inset-0 overflow-hidden z-0 border-none flex items-center justify-center">
           <img 
-            src={(agent.imageUrl ? `/images/${agent.imageUrl.split('/').pop()?.split('?')[0]}` : null) || selectedImage} 
+            src={getImageUrl()} 
             alt="" 
             className={cn(
               "w-[85%] h-[85%] object-contain transition-transform duration-700 group-hover:scale-[1.05]",
@@ -88,7 +98,7 @@ export default function AgentCard({ agent, index, level, onRun, onEdit, onDelete
             onError={(e) => {
               const target = e.target as HTMLImageElement;
               target.onerror = null;
-              target.src = availableImages[0];
+              target.src = `/images/${availableImages[0]}`;
             }}
           />
           

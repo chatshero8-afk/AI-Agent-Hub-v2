@@ -22,15 +22,32 @@ export interface CalendarEvent {
 
 export interface TodoItem {
   id: string;
-  text: string;
-  completed: boolean;
-  createdAt: number;
-  type?: 'once' | 'recurring';
-  status?: any;
-  dueDate?: string;
-  label?: string;
-  labelColor?: string;
-  callDuration?: string;
+  title: string;
+  status: 'todo' | 'in-progress' | 'in-review' | 'done';
+  date: string;
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  assignee?: string;
+  assigneeId?: string;
+  assigneeAvatar?: string;
+  assignedBy?: string;
+  assignedById?: string;
+  createdAt: any;
+  updatedAt: any;
+}
+
+export type NotificationType = 'task_assigned' | 'task_progress' | 'task_correction' | 'info';
+
+export interface AppNotification {
+  id: string;
+  userId: string;
+  senderId?: string;
+  senderName?: string;
+  title: string;
+  message: string;
+  type: NotificationType;
+  taskId?: string;
+  read: boolean;
+  createdAt: any;
 }
 
 export interface ActivityLog {
