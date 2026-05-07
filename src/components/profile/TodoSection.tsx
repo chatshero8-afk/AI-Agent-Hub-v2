@@ -930,23 +930,23 @@ function KanbanColumn({ title, status, tasks, color, onDrop, onDelete, onEdit, o
               draggable
               onDragStart={(e: any) => e.dataTransfer.setData('taskId', task.id)}
               className={cn(
-                "p-4 rounded-3xl border transition-all cursor-grab active:cursor-grabbing group relative overflow-hidden",
+                "p-2.5 px-3.5 rounded-2xl border transition-all cursor-grab active:cursor-grabbing group relative overflow-hidden",
                 isAssignedToMeByOthers ? "glow-line-orange border-orange-500/40 bg-gradient-to-br from-orange-500/5 to-transparent" : 
                 isAssignedToOthersByMe ? "glow-line-purple border-purple-500/40 bg-gradient-to-br from-purple-500/5 to-transparent" : "border-white/10",
                 "bg-[#0f172a]/70 backdrop-blur-xl hover:bg-[#0f172a]/90 hover:border-white/20 shadow-xl",
                 !(isForMe || isByMe) && "opacity-40 grayscale"
               )}
             >
-              <div className="flex flex-col gap-3 relative z-10">
+              <div className="flex flex-col gap-1.5 relative z-10">
                 {/* Top Row */}
-                <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start justify-between gap-1.5">
                   <span className={cn(
-                    "text-base font-black text-white leading-none tracking-tight truncate", 
+                    "text-sm font-black text-white leading-tight tracking-tight truncate", 
                     task.status === 'done' && "opacity-50 line-through"
                   )}>
                     {task.title.toLowerCase()}
                   </span>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 shrink-0">
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       {(isByMe || profile?.isAdmin) ? (
                         <>
@@ -957,25 +957,17 @@ function KanbanColumn({ title, status, tasks, color, onDrop, onDelete, onEdit, o
                         <button onClick={() => onEdit(task.id)} className="p-1 text-slate-500 hover:text-indigo-400 transition-colors"><Clock size={12} /></button>
                       )}
                     </div>
-                    <Clock size={16} className="text-slate-500/40" />
+                    <Clock size={12} className="text-slate-500/40" />
                   </div>
                 </div>
 
                 {/* Info Pills Section */}
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-1.5">
                   {task.date && (
-                    <div className="bg-black/40 border border-white/5 rounded-lg py-1 px-2.5 flex items-center gap-2">
+                    <div className="bg-black/40 border border-white/5 rounded-lg py-0.5 px-2 flex items-center gap-1.5">
                       <Clock size={10} className="text-indigo-400" />
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                      <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">
                         {new Date(task.date).toLocaleDateString([], { month: 'short', day: 'numeric' })}, {new Date(task.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }).toUpperCase()}
-                      </span>
-                    </div>
-                  )}
-                  {isAssignedToMeByOthers && task.assignedBy && (
-                    <div className="bg-black/40 border border-white/5 rounded-lg py-1 px-2.5 flex items-center gap-2">
-                      <User size={10} className="text-emerald-400" />
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                        By: <span className="text-emerald-400">{(task.assignedBy || 'Unknown').split(' ')[0].toUpperCase()}</span>
                       </span>
                     </div>
                   )}
@@ -983,8 +975,8 @@ function KanbanColumn({ title, status, tasks, color, onDrop, onDelete, onEdit, o
 
                 {/* Bottom Row - Conditional */}
                 <div className={cn(
-                  "flex items-center justify-between",
-                  !isAssignedToMeByOthers && "pt-2 border-t border-white/5 mt-1"
+                  "flex items-center justify-between pt-1.5 border-t border-white/5",
+                  !isAssignedToMeByOthers && "mt-0.5"
                 )}>
                   {!isAssignedToMeByOthers ? (
                     <div className="flex items-center gap-2">
@@ -995,7 +987,7 @@ function KanbanColumn({ title, status, tasks, color, onDrop, onDelete, onEdit, o
                             className="w-full h-full object-cover" 
                           />
                         </div>
-                        <span className="text-[9px] font-black text-white uppercase tracking-widest truncate max-w-[60px]">
+                        <span className="text-[9px] font-black text-white uppercase tracking-widest truncate max-w-[80px]">
                           {((isByMe ? (profile?.name || user?.email?.split('@')[0] || 'Me') : (task.assignedBy || 'Unknown').split(' ')[0]) || '').toUpperCase()}
                         </span>
                       </div>
@@ -1016,7 +1008,7 @@ function KanbanColumn({ title, status, tasks, color, onDrop, onDelete, onEdit, o
                   
                   {isAssignedToMeByOthers && (
                     <div className={cn(
-                      "px-3 py-1 rounded-full border text-[9px] font-black uppercase tracking-widest shadow-lg",
+                      "px-2.5 py-0.5 rounded-full border text-[8px] font-black uppercase tracking-widest shadow-lg",
                       task.priority === 'urgent' ? "bg-rose-500/10 text-rose-500 border-rose-500/30" :
                       task.priority === 'high' ? "bg-orange-500/10 text-orange-500 border-orange-500/30" :
                       task.priority === 'medium' ? "bg-blue-500/10 text-blue-500 border-blue-500/30" :
